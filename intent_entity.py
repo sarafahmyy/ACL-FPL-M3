@@ -1,13 +1,13 @@
 from dataclasses import dataclass, field
 from typing import List, Optional
-import re
 import os
+import json
 
 from huggingface_hub import InferenceClient
 from sentence_transformers import SentenceTransformer
 
 
-# ---------- DATA STRUCTURES (used for 1.b) ----------
+# ---------- DATA STRUCTURES ----------
 
 @dataclass
 class QueryEntities:
@@ -18,8 +18,8 @@ class QueryEntities:
     teams: List[str] = field(default_factory=list)
     season: Optional[str] = None
     gameweek: Optional[int] = None
-    position: Optional[str] = None
-    stats: List[str] = field(default_factory=list)
+    position: Optional[str] = None   # GK, DEF, MID, FWD
+    stats: List[str] = field(default_factory=list)  # e.g. ["total_points", "goals_scored"]
 
 
 @dataclass
@@ -42,22 +42,28 @@ INTENT_LABELS = [
     "team_analysis",
     "player_identity",
     "generic_question",
-    "greetings"
+    "greetings",
 ]
+
+VALID_SEASONS = ["2021-22", "2022-23"]
+
+
+
+def _get_hf_client() -> InferenceClient:
+    hf_token = os.getenv("HF_TOKEN")
+    if not hf_token:
+        raise RuntimeError("HF_TOKEN environment variable not set!")
+    return InferenceClient(
+        model="google/gemma-2-2b-it",
+        token=hf_token,
+    )
+
 
 def classify_intent(user_input: str) -> str:
     """
     Uses the LLM (Gemma 2B IT) to classify the user's intent.
-    Extended with 'player_identity' intent.
     """
-    hf_token = os.getenv("HF_TOKEN")
-    if not hf_token:
-        raise RuntimeError("HF_TOKEN environment variable not set!")
-
-    client = InferenceClient(
-        model="google/gemma-2-2b-it",
-        token=hf_token
-    )
+    client = _get_hf_client()
 
     prompt = f"""
 You are an intent classifier for a Fantasy Premier League (FPL) assistant.
@@ -71,6 +77,7 @@ Your job is to classify user questions into EXACTLY ONE of these categories:
 - team_analysis
 - player_identity
 - generic_question
+- greetings
 
 Return ONLY the label. No explanations.
 
@@ -126,96 +133,107 @@ Intent:
     return "generic_question"
 
 
+# ---------- 1.b ENTITY EXTRACTION (LLM NER, NO RULES) ----------
 
-
-# ---------- 1.b ENTITY EXTRACTION HELPERS ----------
-
-KNOWN_POSITIONS = {
-    "goalkeeper": "GK",
-    "keeper": "GK",
-    "gk": "GK",
-    "defender": "DEF",
-    "def": "DEF",
-    "midfielder": "MID",
-    "mid": "MID",
-    "forward": "FWD",
-    "striker": "FWD",
-    "fwd": "FWD",
-}
-
-STAT_KEYWORDS_TO_PROP = {
-    "points": "total_points",
-    "total points": "total_points",
-    "goals": "goals_scored",
-    "goals scored": "goals_scored",
-    "assists": "assists",
-    "minutes": "minutes",
-    "yellow cards": "yellow_cards",
-    "red cards": "red_cards",
-    "clean sheets": "clean_sheets",
-}
-
-
-def extract_season(text: str) -> Optional[str]:
-    m = re.search(r"(20\d{2}-\d{2})", text)
-    if m:
-        return m.group(1)
-
-    for year in ["2021", "2022", "2023", "2024"]:
-        if year in text:
-            return year
-
-    return None
-
-
-def extract_gameweek(text: str) -> Optional[int]:
-    m = re.search(r"(gw|gameweek)\s*([0-9]{1,2})", text)
-    if m:
-        return int(m.group(2))
-    return None
-
-
-def extract_position(text: str) -> Optional[str]:
-    for word, code in KNOWN_POSITIONS.items():
-        if word in text:
-            return code
-    return None
-
-
-def extract_stats(text: str) -> List[str]:
-    found = []
-    for phrase, prop in STAT_KEYWORDS_TO_PROP.items():
-        if phrase in text:
-            if prop not in found:
-                found.append(prop)
-    return found
-
-
-def extract_players_and_teams(text: str) -> tuple[list[str], list[str]]:
+def llm_extract_entities(user_input: str) -> dict:
     """
-    Placeholder — for now, no name detection.
+    Uses Gemma 2B IT to extract structured entities from the text (NER-style),
+    with NO regex/keyword rules. All logic is in the LLM prompt.
+
+    It should:
+    - detect players, teams, season, gameweek, position, stats
+    - correct obvious typos (e.g. "halaand" -> "Erling Haaland")
+    - map stats to FPL property names
     """
-    return [], []
+    client = _get_hf_client()
 
+    prompt = f"""
+You are an information extraction system for Fantasy Premier League (FPL).
 
-# ---------- MAIN ENTITY EXTRACTION + INTENT ----------
+Read the text and extract FPL-related entities.
+Return ONLY valid JSON with these fields:
+
+{{
+  "players": [],   // list of player full names as strings
+  "teams": [],     // list of team names as strings
+  "season": null,  // string like "2022-23" or null
+  "gameweek": null,// integer gameweek number or null
+  "position": null,// one of "GK", "DEF", "MID", "FWD" or null
+  "stats": []      // list of property names like:
+                  // "total_points", "goals_scored", "assists",
+                  // "minutes", "yellow_cards", "red_cards", "clean_sheets"
+}}
+
+Rules:
+- Valid seasons: ["2021-22", "2022-23"]
+- If the user mentions any other season (e.g. 2019, 2020, 2023-24), return season=null.
+- If the user says "this season" or "last season", pick the closest valid season.
+- Be tolerant to spelling mistakes. For example "halaand" should become "Erling Haaland"
+  if that is clearly intended.
+- If the user mentions "forwards", "strikers", etc., map the position to "FWD".
+- If something is not clearly mentioned, keep it as null or empty list.
+- Do NOT add comments, explanations, or extra text. Only output pure JSON.
+
+TEXT: "{user_input}"
+
+Return JSON:
+"""
+
+    response = client.chat_completion(
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.0,
+        max_tokens=200,
+    )
+
+    content = response["choices"][0]["message"]["content"].strip()
+
+    # Try to extract JSON even if model adds backticks, etc.
+    try:
+        start = content.find("{")
+        end = content.rfind("}")
+        if start != -1 and end != -1:
+            json_str = content[start:end + 1]
+            data = json.loads(json_str)
+        else:
+            raise ValueError("No JSON found")
+    except Exception:
+        # Fallback if anything goes wrong
+        data = {
+            "players": [],
+            "teams": [],
+            "season": None,
+            "gameweek": None,
+            "position": None,
+            "stats": [],
+        }
+
+    # Ensure all keys exist
+    for key in ["players", "teams", "season", "gameweek", "position", "stats"]:
+        data.setdefault(key, None if key in ["season", "gameweek", "position"] else [])
+
+    # ----- Season validation against KG -----
+    season = data.get("season")
+    if season is not None and season not in VALID_SEASONS:
+        data["season"] = None
+
+    return data
+
 
 def extract_entities(user_input: str) -> ParsedInput:
-    text_lower = user_input.lower()
-
-    season = extract_season(text_lower)
-    gw = extract_gameweek(text_lower)
-    position = extract_position(text_lower)
-    stats = extract_stats(text_lower)
-    players, teams = extract_players_and_teams(user_input)
+    """
+    Main preprocessing function:
+    - calls LLM NER to get entities
+    - calls LLM classifier to get intent
+    """
+    entity_data = llm_extract_entities(user_input)
 
     entities = QueryEntities(
-        players=players,
-        teams=teams,
-        season=season,
-        gameweek=gw,
-        position=position,
-        stats=stats,
+        players=entity_data.get("players", []),
+        teams=entity_data.get("teams", []),
+        season=entity_data.get("season"),
+        gameweek=entity_data.get("gameweek"),
+        position=entity_data.get("position"),
+        stats=entity_data.get("stats", []),
     )
 
     intent = classify_intent(user_input)
@@ -234,10 +252,8 @@ _embedding_model = None
 
 def get_embedding_model():
     global _embedding_model
-
     if _embedding_model is None:
         _embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
-
     return _embedding_model
 
 
@@ -252,20 +268,20 @@ def embed_input(user_input: str):
 if __name__ == "__main__":
     example_questions = [
         "Top forwards in 2023 season",
+        "Show me stats and goals for midfielders in 2019",
         "How many points did Haaland get in GW 3 2022-23?",
         "How did Arsenal team perform last season?",
         "Who should I captain this gameweek?",
         "What is the next fixture for Liverpool in GW 10?",
         "Show me stats and goals for midfielders in 2022-23",
         "who is halaand?",
-        "who should i captin",
-        "hello there how are you?",
+        "Who could I captin this gameweek?",
+        "hello there how are you?"
     ]
 
     for q in example_questions:
         print("=" * 80)
         print("Q:", q)
-
         parsed = extract_entities(q)
         print(" -> intent (LLM):", parsed.intent)
         print(" -> entities:", parsed.entities)
