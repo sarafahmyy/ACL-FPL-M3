@@ -269,17 +269,23 @@ if __name__ == "__main__":
         "hello there how are you?"
     ]
 
-    for q in example_questions:
-        print("=" * 80)
-        print("Q:", q)
-        parsed = extract_entities(q)
-        print(" -> intent (LLM):", parsed.intent)
-        print(" -> entities:", parsed.entities)
+    
+    for model_key in ["mini", "mpnet"]:
+        print("\n" + "#" * 40)
+        print(f"EMBEDDING MODEL: {model_key}")
+        print("#" * 40)
 
-        try:
-            emb = embed_input(q)
-            print(" -> embedding length:", len(emb))
-        except Exception as e:
-            print(" -> embedding error:", e)
+        for q in example_questions:
+            print("=" * 80)
+            print("Q:", q)
+            parsed = extract_entities(q)
+            print(" -> intent (LLM):", parsed.intent)
+            print(" -> entities:", parsed.entities)
 
-        print()
+            try:
+                emb = embed_input(q, model_key=model_key)
+                print(f" -> embedding length ({model_key}):", len(emb))
+            except Exception as e:
+                print(" -> embedding error:", e)
+
+            print()

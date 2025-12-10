@@ -265,7 +265,7 @@ def baseline_player_season_stats(parsed: ParsedInput):
     season = parsed.entities.season or "2022-23"
 
     params = {"player": player, "season": season}
-
+    
     query = """
     MATCH (p:Player {player_name: $player})
     MATCH (s:Season {season_name: $season})
@@ -760,7 +760,7 @@ if __name__ == "__main__":
     q13_parsed = ParsedInput("player_big_games", q13_entities,
                              "Show me games where Haaland scored at least 2 goals in 22/23")
     print(baseline_player_big_games(q13_parsed, min_goals=2))
-    
+
 
     print("\n================= BASELINE QUERY #14=================\n")
     q14_entities = QueryEntities(season="2022-23", gameweek=5)
