@@ -1,24 +1,16 @@
 """
 Section 2.a - Baseline Graph Retrieval (FPL)
 
-This file:
-- Connects to Neo4j
-- Implements baseline Cypher queries using your actual KG schema.
-
-Implemented so far:
-  Baseline Query #1 -> Top players by position in a season
-  Baseline Query #2 -> Player performance in a season / gameweek
 """
 
 import os
 from typing import Dict, Any, List, Optional
-
 from neo4j import GraphDatabase
 from dotenv import load_dotenv
 
 from intent_entity import ParsedInput, QueryEntities
 
-# Load .env so NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD are available
+
 load_dotenv()
 
 # ---------- Neo4j CONNECTION ----------
@@ -30,7 +22,7 @@ NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
 
 def get_driver():
     """
-    Create a Neo4j driver using environment variables.
+    Create a Neo4j driver using environment variables.  call get_driver() to talk to the DB.
     """
     return GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
 
@@ -55,22 +47,11 @@ def baseline_top_players(parsed: ParsedInput, limit: int = 10) -> Dict[str, Any]
     Answer questions like:
       - 'Top forwards in 2022-23'
       - 'Best midfielders in 2021-22 season'
-
-    Uses entities from preprocessing:
-      parsed.entities.season   -> e.g. '2022-23'
-      parsed.entities.position -> 'GK' / 'DEF' / 'MID' / 'FWD' (mapped from text)
-
-    Uses your KG schema:
-      (s:Season {season_name})
-        -[:HAS_GW]->(gw:Gameweek {GW_number, season})
-        -[:HAS_FIXTURE]->(f:Fixture)
-      (p:Player {player_name, player_element})
-      (p)-[r:PLAYED_IN {total_points, ...}]->(f)
-      (p)-[:PLAYS_AS]->(pos:Position {name})
+      
     """
 
     season = parsed.entities.season or "2022-23"   # default if user doesn't say
-    position = parsed.entities.position            # might be None
+    position = parsed.entities.position            
 
     params = {
         "season": season,
@@ -114,17 +95,6 @@ def baseline_player_performance(parsed: ParsedInput) -> Dict[str, Any]:
       - 'How many points did Haaland get in GW 3 2022-23?'
       - 'Show me total points for Mohamed Salah in 2022-23 season'
 
-    Expected entities:
-      parsed.entities.players[0] -> player name (string, must match Player.player_name)
-      parsed.entities.season     -> e.g. '2022-23'
-      parsed.entities.gameweek   -> optional int (e.g. 3)
-
-    Schema used:
-      (s:Season {season_name})
-        -[:HAS_GW]->(gw:Gameweek {GW_number, season})
-        -[:HAS_FIXTURE]->(f:Fixture)
-      (p:Player {player_name})
-        -[r:PLAYED_IN {total_points, ...}]->(f)
     """
 
     if not parsed.entities.players:
@@ -168,6 +138,13 @@ def baseline_player_performance(parsed: ParsedInput) -> Dict[str, Any]:
 
 
 def baseline_team_performance(parsed: ParsedInput):
+
+    """
+    Answer questions like:
+      "How did Arsenal perform last season?"
+      "Show me Liverpool’s total goals and points in 2022-23
+    """
+    
     if not parsed.entities.teams:
         raise ValueError("Team name missing in Query 3.")
 
@@ -198,6 +175,16 @@ def baseline_team_performance(parsed: ParsedInput):
 
 
 def baseline_fixtures_by_gameweek(parsed: ParsedInput):
+
+    """
+    Answer questions like:
+     "What are the fixtures for GW 10?"
+     "Show me all matches in gameweek 5"
+     "Which teams play in GW 2?"
+      
+    """
+   
+    
     season = parsed.entities.season or "2022-23"
     gw = parsed.entities.gameweek
 
@@ -226,6 +213,14 @@ def baseline_fixtures_by_gameweek(parsed: ParsedInput):
 
 
 def baseline_team_fixtures(parsed: ParsedInput):
+
+    """
+    Answer questions like:
+     "Show me all Man City matches in 2022-23"
+     "Who does Chelsea play in GW 15?"
+      
+    """
+
     if not parsed.entities.teams:
         raise ValueError("Team missing for Query 5.")
 
@@ -255,6 +250,14 @@ def baseline_team_fixtures(parsed: ParsedInput):
 
 
 def baseline_player_season_stats(parsed: ParsedInput):
+
+    """
+    Answer questions like:
+     "Show me Salah’s stats in 2022-23"
+     "Player stats for Saka"
+      
+    """
+
     if not parsed.entities.players:
         raise ValueError("Player missing for Query 6.")
 
@@ -283,6 +286,16 @@ def baseline_player_season_stats(parsed: ParsedInput):
 
 
 def baseline_player_comparison(parsed: ParsedInput):
+
+    """
+    Answer questions like:
+     "Compare Haaland and Kane in 2022-23"
+     "Who scored more points — Salah or De Bruyne?"
+     "Haaland vs Rashford comparison"
+      
+    """
+
+
     if len(parsed.entities.players) < 2:
         raise ValueError("Need two players for Query 7.")
 
@@ -311,6 +324,16 @@ def baseline_player_comparison(parsed: ParsedInput):
 
 
 def baseline_team_best_players(parsed: ParsedInput, limit: int = 5):
+
+    """
+    Answer questions like:
+     "Best Manchester City players this season"
+     "Who are Arsenal's top scorers?"
+     "Show me the top 5 Liverpool players"
+      
+    """
+
+
     if not parsed.entities.teams:
         raise ValueError("Team missing for Query 8.")
 
@@ -344,8 +367,17 @@ def baseline_team_best_players(parsed: ParsedInput, limit: int = 5):
 
 
 def baseline_fixture_difficulty(parsed: ParsedInput):
+
+    """
+    Answer questions like:
+     "How hard are Arsenal’s fixtures?"
+     "Show me the opponent difficulty for Chelsea"
+     "Which upcoming matches for Spurs are toughest?"
+      
+    """
+        
     if not parsed.entities.teams:
-        raise ValueError("Team missing for Query 9.")
+        raise ValueError("Team not available.")
 
     team = parsed.entities.teams[0]
     season = parsed.entities.season or "2022-23"
@@ -377,6 +409,16 @@ def baseline_fixture_difficulty(parsed: ParsedInput):
 
 
 def baseline_recommendation_graph_only(parsed: ParsedInput, limit: int = 3):
+
+
+    """
+    Answer questions like:
+     "Who should I captain?"
+     "Who are the best FPL players overall?"
+     "Recommend a player to buy"
+      
+    """
+        
     season = parsed.entities.season or "2022-23"
 
     params = {"season": season, "limit": limit}
@@ -397,6 +439,250 @@ def baseline_recommendation_graph_only(parsed: ParsedInput, limit: int = 3):
     rows = run_cypher(query, params)
     return {"query": query, "params": params, "rows": rows}
 
+def baseline_player_identity(parsed: ParsedInput) -> Dict[str, Any]:
+    """
+    Answers questions like:
+      - 'Who is Mohamed Salah?'
+      - 'Who is Haaland in 2022-23?'
+
+    """
+    if not parsed.entities.players:
+        raise ValueError("Player name missing for player_identity query.")
+
+    player_name = parsed.entities.players[0]
+    season = parsed.entities.season or "2022-23"
+
+    params = {
+        "player_name": player_name,
+        "season": season,
+    }
+
+    query = """
+    // Find the player node
+    MATCH (p:Player {player_name: $player_name})
+
+    // Optional: position
+    OPTIONAL MATCH (p)-[:PLAYS_AS]->(pos:Position)
+
+    // Optional: total points in the given season
+    OPTIONAL MATCH (p)-[r:PLAYED_IN]->(f:Fixture)
+    OPTIONAL MATCH (f)<-[:HAS_FIXTURE]-(gw:Gameweek)<-[:HAS_GW]-(s:Season {season_name: $season})
+
+    WITH p, pos, sum(COALESCE(r.total_points, 0)) AS season_points
+    RETURN
+        p.player_name AS player,
+        pos.name AS position,
+        season_points AS total_points_season
+    """
+
+    rows = run_cypher(query, params)
+
+    return {
+        "intent": parsed.intent,
+        "player_name": player_name,
+        "season": season,
+        "query": query,
+        "params": params,
+        "rows": rows,
+    }
+
+
+def baseline_team_defense(parsed: ParsedInput) -> Dict[str, Any]:
+    """
+    NEW QUERY 11 - Team defensive performance (clean sheets, goals conceded)
+
+    Answers questions like:
+      - "How many clean sheets did Arsenal have in 2022-23?"
+      - "Show me Liverpool defensive stats in 22/23"
+
+    Entities used:
+      parsed.entities.teams[0]  -> team name, must match (t:Team {name})
+      parsed.entities.season    -> e.g. '2022-23'
+
+    Schema assumed:
+      (t:Team {name})
+      (s:Season {season_name})
+        -[:HAS_GW]->(:Gameweek)
+        -[:HAS_FIXTURE]->(f:Fixture)
+      (f)-[:HAS_HOME_TEAM]->(:Team)
+      (f)-[:HAS_AWAY_TEAM]->(:Team)
+      (p:Player)-[r:PLAYED_IN {clean_sheets, goals_conceded, ...}]->(f)
+    """
+    if not parsed.entities.teams:
+        raise ValueError("Team name missing in baseline_team_defense.")
+
+    team = parsed.entities.teams[0]
+    season = parsed.entities.season or "2022-23"
+
+    params = {
+        "team": team,
+        "season": season,
+    }
+
+    query = """
+    MATCH (t:Team {name: $team})
+    MATCH (s:Season {season_name: $season})
+          -[:HAS_GW]->(:Gameweek)
+          -[:HAS_FIXTURE]->(f:Fixture)
+    WHERE (f)-[:HAS_HOME_TEAM]->(t) OR (f)-[:HAS_AWAY_TEAM]->(t)
+    MATCH (p:Player)-[r:PLAYED_IN]->(f)
+
+    // we approximate team-level defense from player stats:
+    WITH t, f,
+         sum(r.clean_sheets)    AS cs_sum,
+         sum(r.goals_conceded)  AS goals_conceded_sum
+
+    WITH t,
+         count(DISTINCT f) AS matches,
+         count(CASE WHEN cs_sum > 0 THEN 1 END) AS clean_sheets,
+         sum(goals_conceded_sum) AS goals_conceded
+
+    RETURN t.name AS team, matches, clean_sheets, goals_conceded
+    """
+
+    rows = run_cypher(query, params)
+    return {
+        "query": query,
+        "params": params,
+        "rows": rows,
+    }
+
+
+def baseline_player_big_games(parsed: ParsedInput, min_goals: int = 2) -> Dict[str, Any]:
+    """
+    NEW QUERY 12 - Player 'big games' (matches with many goals)
+
+    Answers questions like:
+      - "Show me games where Haaland scored at least 2 goals in 2022-23."
+      - "In which matches did Salah score 3+ goals?"
+
+    Entities used:
+      parsed.entities.players[0] -> player name
+      parsed.entities.season     -> '2022-23'
+    """
+    if not parsed.entities.players:
+        raise ValueError("Player name missing in baseline_player_big_games.")
+
+    player = parsed.entities.players[0]
+    season = parsed.entities.season or "2022-23"
+
+    params = {
+        "player": player,
+        "season": season,
+        "min_goals": min_goals,
+    }
+
+    query = """
+    MATCH (p:Player {player_name: $player})
+    MATCH (s:Season {season_name: $season})
+          -[:HAS_GW]->(gw:Gameweek)
+          -[:HAS_FIXTURE]->(f:Fixture)
+    MATCH (p)-[r:PLAYED_IN]->(f)
+
+    WHERE r.goals_scored >= $min_goals
+
+    RETURN
+        p.player_name AS player,
+        gw.GW_number  AS gameweek,
+        f.fixture_number AS fixture,
+        r.goals_scored AS goals_in_match
+    ORDER BY gameweek, fixture
+    """
+
+    rows = run_cypher(query, params)
+    return {
+        "query": query,
+        "params": params,
+        "rows": rows,
+    }
+
+
+def baseline_gameweek_top_scorers(parsed: ParsedInput, limit: int = 5) -> Dict[str, Any]:
+    
+    """
+    Answers questions like:
+      - "Who were the top 3 players in GW 5 of 2022-23?"
+      - "Show top scorers in GW 10."
+
+    """
+    season = parsed.entities.season or "2022-23"
+    gw = parsed.entities.gameweek
+
+    if gw is None:
+        raise ValueError("Gameweek is required for baseline_gameweek_top_scorers.")
+
+    params = {
+        "season": season,
+        "gw": gw,
+        "limit": limit,
+    }
+
+    query = """
+    MATCH (s:Season {season_name: $season})
+          -[:HAS_GW]->(gw:Gameweek {GW_number: $gw})
+          -[:HAS_FIXTURE]->(f:Fixture)
+    MATCH (p:Player)-[r:PLAYED_IN]->(f)
+
+    WITH p, sum(r.total_points) AS points
+    ORDER BY points DESC
+    LIMIT $limit
+
+    RETURN
+        p.player_name AS player,
+        $gw    AS gameweek,
+        points AS total_points
+    """
+
+    rows = run_cypher(query, params)
+    return {
+        "query": query,
+        "params": params,
+        "rows": rows,
+    }
+
+def baseline_player_big_games(parsed: ParsedInput, min_goals: int = 2) -> Dict[str, Any]:
+    
+    """
+    Answers questions like:
+      - "Show me games where Haaland scored at least 2 goals in 2022-23."
+      - "In which matches did Salah score 3+ goals?"
+
+    """
+    if not parsed.entities.players:
+        raise ValueError("Player name missing in baseline_player_big_games.")
+
+    player = parsed.entities.players[0]
+    season = parsed.entities.season or "2022-23"
+
+    params = {
+        "player": player,
+        "season": season,
+        "min_goals": min_goals,
+    }
+
+    query = """
+    MATCH (p:Player {player_name: $player})
+    MATCH (s:Season {season_name: $season})
+          -[:HAS_GW]->(gw:Gameweek)
+          -[:HAS_FIXTURE]->(f:Fixture)
+    MATCH (p)-[r:PLAYED_IN]->(f)
+
+    WHERE r.goals_scored >= $min_goals
+
+    RETURN
+        p.player_name AS player,
+        gw.GW_number  AS gameweek,
+        f.fixture_number AS fixture,
+        r.goals_scored AS goals_in_match
+    ORDER BY gameweek, fixture
+    """
+
+    rows = run_cypher(query, params)
+    return {
+        "query": query,
+        "params": params,
+        "rows": rows,
+    }
 
 
 # ============================================================
@@ -455,3 +741,29 @@ if __name__ == "__main__":
     q10_entities = QueryEntities(season="2022-23")
     q10_parsed = ParsedInput("recommendation", q10_entities, "Who to captain?")
     print(baseline_recommendation_graph_only(q10_parsed))
+
+
+    print("\n================= BASELINE QUERY #11 =================\n")
+    q11_entities = QueryEntities(players=["Erling Haaland"], season="2022-23")
+    q11_parsed = ParsedInput("player_identity", q11_entities, "Who is Haaland in 22/23?")
+    print(baseline_player_identity(q11_parsed))
+
+
+    print("\n================= BASELINE QUERY #12 =================\n")
+    q12_entities = QueryEntities(teams=["Arsenal"], season="2022-23")
+    q12_parsed = ParsedInput("team_defense", q12_entities, "How many clean sheets did Arsenal have?")
+    print(baseline_team_defense(q12_parsed))
+
+
+    print("\n================= BASELINE QUERY #13  =================\n")
+    q13_entities = QueryEntities(players=["Erling Haaland"], season="2022-23")
+    q13_parsed = ParsedInput("player_big_games", q13_entities,
+                             "Show me games where Haaland scored at least 2 goals in 22/23")
+    print(baseline_player_big_games(q13_parsed, min_goals=2))
+    
+
+    print("\n================= BASELINE QUERY #14=================\n")
+    q14_entities = QueryEntities(season="2022-23", gameweek=5)
+    q14_parsed = ParsedInput("gw_top_scorers", q14_entities,
+                             "Who were the top players in GW 5 22/23?")
+    print(baseline_gameweek_top_scorers(q14_parsed, limit=5))

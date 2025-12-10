@@ -4,7 +4,7 @@ import os
 import json
 
 from huggingface_hub import InferenceClient
-from sentence_transformers import SentenceTransformer
+from input_embedding import embed_user_text
 
 
 # ---------- DATA STRUCTURES ----------
@@ -32,7 +32,7 @@ class ParsedInput:
     raw: str
 
 
-# ---------- 1.a INTENT CLASSIFICATION (LLM ONLY) ----------
+# ---------- 1.a INTENT CLASSIFICATION ----------
 
 INTENT_LABELS = [
     "recommendation",
@@ -133,7 +133,7 @@ Intent:
     return "generic_question"
 
 
-# ---------- 1.b ENTITY EXTRACTION (LLM NER, NO RULES) ----------
+# ---------- 1.b ENTITY EXTRACTION  ----------
 
 def llm_extract_entities(user_input: str) -> dict:
     """
@@ -247,20 +247,10 @@ def extract_entities(user_input: str) -> ParsedInput:
 
 # ---------- 1.c INPUT EMBEDDING ----------
 
-_embedding_model = None
 
-
-def get_embedding_model():
-    global _embedding_model
-    if _embedding_model is None:
-        _embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
-    return _embedding_model
-
-
-def embed_input(user_input: str):
-    model = get_embedding_model()
-    vec = model.encode(user_input)
-    return vec.tolist()
+def embed_input(user_input: str, model_key: str = "mini"):
+    
+    return embed_user_text(user_input, model_key=model_key)
 
 
 # ---------- DEMO BLOCK ----------
