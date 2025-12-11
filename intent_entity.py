@@ -2,9 +2,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 import os
 import json
-
 from huggingface_hub import InferenceClient
-from input_embedding import embed_user_text
 
 
 # ---------- DATA STRUCTURES ----------
@@ -248,11 +246,6 @@ def extract_entities(user_input: str) -> ParsedInput:
 # ---------- 1.c INPUT EMBEDDING ----------
 
 
-def embed_input(user_input: str, model_key: str = "mini"):
-    
-    return embed_user_text(user_input, model_key=model_key)
-
-
 # ---------- DEMO BLOCK ----------
 
 if __name__ == "__main__":
@@ -279,13 +272,13 @@ if __name__ == "__main__":
             print("=" * 80)
             print("Q:", q)
             parsed = extract_entities(q)
-            print(" -> intent (LLM):", parsed.intent)
-            print(" -> entities:", parsed.entities)
+            # print(" -> intent (LLM):", parsed.intent)
+            # print(" -> entities:", parsed.entities)
 
-            try:
-                emb = embed_input(q, model_key=model_key)
-                print(f" -> embedding length ({model_key}):", len(emb))
-            except Exception as e:
-                print(" -> embedding error:", e)
+            # try:
+            #     emb = embed(q, model_key=model_key)
+            #     print(f" -> embedding length ({model_key}):", len(emb))
+            # except Exception as e:
+            #     print(" -> embedding error:", e)
 
-            print()
+            # print()
