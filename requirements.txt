@@ -6,3 +6,5 @@ langchain-huggingface
 huggingface-hub<1.0.0,>=0.34.0  
 sentence-transformers
 python-dotenv
+groq
+google-genai
