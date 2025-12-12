@@ -28,9 +28,15 @@ def pipeline(user_question: str,
 
     print("\n--- RUNNING BASELINE APPROACH ---")
 
+
+    baseline_result = {}
+    embedding_result = {}
+
+
     try:
         baseline_result = route_baseline(parsed_intents_entities)
-        baseline_chunks=baseline_result["rows"]
+        baseline_chunks = baseline_result.get("rows", [])
+
     except Exception as e:
         print("\n[ERROR RUNNING BASELINE RETRIEVAL]", e)
         print()
@@ -38,12 +44,13 @@ def pipeline(user_question: str,
 
     try:
         embedding_result = semantic_player_search(parsed_intents_entities, model_key=embedding_model_key, k=5)
-        embedding_chunks=embedding_result["rows"]
+        embedding_chunks = embedding_result.get("rows", [])
+
 
     except Exception as e:
         print("\n[ERROR RUNNING EMBEDDING RETRIEVAL]", e)
         print()
-        baseline_result= []\
+        embedding_chunks = []
         
     print("\n--- COMBINING RESULTS ---")
     combined_chunks = combine_chunks(baseline_chunks, embedding_chunks)
@@ -57,12 +64,22 @@ def pipeline(user_question: str,
     do not fabricate any information or make up answers or respond from your own knowledge."""
 
     response = llm.send_to_llm(prompt)
-    return response
+    
+    return {
+      "answer": response,
+      "intent": parsed_intents_entities.intent,
+      "entities": parsed_intents_entities.entities,
+      "baseline": baseline_result,     
+      "embedding": embedding_result,    
+      "combined": combined_chunks,
+}
 
 
 
 
-if __name__ == "__main__":
+
+
+#if __name__ == "__main__":
     # example_questions = [
     #     "Top forwards in 2023 season",
     #     "Show me stats and goals for midfielders in 2019",
@@ -77,11 +94,11 @@ if __name__ == "__main__":
     # ]
 
 
-    embedding_model_key="mini"
-    user_question="who is mo salah and where does he play and what is his score?"
-    llm=ModelCatalogue.LLAMA_70B
+    #embedding_model_key="mini"
+    #user_question="who is mo salah and where does he play and what is his score?"
+    #llm=ModelCatalogue.LLAMA_70B
 
-    response = pipeline(user_question, llm_key=llm, embedding_model_key=embedding_model_key)
-    print("\n--- FINAL RESPONSE ---")
-    print(response)
+    #response = pipeline(user_question, llm_key=llm, embedding_model_key=embedding_model_key)
+    #print("\n--- FINAL RESPONSE ---")
+    #print(response)
 

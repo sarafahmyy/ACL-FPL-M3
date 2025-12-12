@@ -4,6 +4,8 @@ import os
 import json
 from huggingface_hub import InferenceClient
 
+from utils.embedding import embed
+
 
 # ---------- DATA STRUCTURES ----------
 
@@ -78,6 +80,8 @@ Your job is to classify user questions into EXACTLY ONE of these categories:
 - greetings
 
 Return ONLY the label. No explanations.
+
+
 
 =====================
 FEW-SHOT EXAMPLES
@@ -156,11 +160,21 @@ Return ONLY valid JSON with these fields:
   "teams": [],     // list of team names as strings
   "season": null,  // string like "2022-23" or null
   "gameweek": null,// integer gameweek number or null
-  "position": null,// one of "GK", "DEF", "MID", "FWD" or null
+  "position_filter": null, // one of "GK", "DEF", "MID", "FWD" or null
   "stats": []      // list of property names like:
                   // "total_points", "goals_scored", "assists",
                   // "minutes", "yellow_cards", "red_cards", "clean_sheets"
 }}
+
+
+CRITICAL:
+- Extract ONLY what is explicitly stated in TEXT.
+- Do NOT use football knowledge.
+- The field "position" MUST be null unless the TEXT explicitly contains one of these words:
+  goalkeeper, gk, defender(s), defence/defense, midfielder(s), forward(s), striker(s).
+- If the user asks "what is his position?" but does NOT include one of those words, position MUST be null.
+
+
 
 Rules:
 - Valid seasons: ["2021-22", "2022-23"]
@@ -168,9 +182,23 @@ Rules:
 - If the user says "this season" or "last season", pick the closest valid season.
 - Be tolerant to spelling mistakes. For example "halaand" should become "Erling Haaland"
   if that is clearly intended.
-- If the user mentions "forwards", "strikers", etc., map the position to "FWD".
 - If something is not clearly mentioned, keep it as null or empty list.
 - Do NOT add comments, explanations, or extra text. Only output pure JSON.
+- If (and only if) the TEXT contains words like "forward(s)" or "striker(s)", set position="FWD".
+- Use position_filter ONLY if the user explicitly mentions a position group:
+  forwards/strikers -> FWD, midfielders -> MID, defenders -> DEF, goalkeepers -> GK.
+- If the user asks "what is his position?" (about a specific player), then put "position" in stats
+  and keep position_filter = null.
+
+
+
+
+Before you output JSON, silently verify:
+- If none of the position keywords appear in TEXT, then position must be null.
+- If you violate any rule, fix the JSON before outputting.
+Return ONLY JSON.
+
+
 
 TEXT: "{user_input}"
 
@@ -250,16 +278,8 @@ def extract_entities(user_input: str) -> ParsedInput:
 
 if __name__ == "__main__":
     example_questions = [
-        "Top forwards in 2023 season",
-        "Show me stats and goals for midfielders in 2019",
-        "How many points did Haaland get in GW 3 2022-23?",
-        "How did Arsenal team perform last season?",
-        "Who should I captain this gameweek?",
-        "What is the next fixture for Liverpool in GW 10?",
-        "Show me stats and goals for midfielders in 2022-23",
-        "who is halaand?",
-        "Who could I captin this gameweek?",
-        "hello there how are you?"
+        "Who is Mohamed Salah and what is his position?",
+
     ]
 
     
@@ -272,13 +292,13 @@ if __name__ == "__main__":
             print("=" * 80)
             print("Q:", q)
             parsed = extract_entities(q)
-            # print(" -> intent (LLM):", parsed.intent)
-            # print(" -> entities:", parsed.entities)
+            print(" -> intent (LLM):", parsed.intent)
+            print(" -> entities:", parsed.entities)
 
-            # try:
-            #     emb = embed(q, model_key=model_key)
-            #     print(f" -> embedding length ({model_key}):", len(emb))
-            # except Exception as e:
-            #     print(" -> embedding error:", e)
+            try:
+                emb = embed(q, model_key=model_key)
+                print(f" -> embedding length ({model_key}):", len(emb))
+            except Exception as e:
+                print(" -> embedding error:", e)
 
-            # print()
+            print()

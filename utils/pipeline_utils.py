@@ -1,12 +1,16 @@
 # utils/pipeline_utils.py
 
 import json
-from typing import List, Dict, Any
+from typing import List, Any
+
+from typing import List, Any
 
 def combine_chunks(
-    baseline_chunks: List[Dict[str, Any]],
-    embedding_chunks: List[Dict[str, Any]],
-):
+    baseline_chunks: List[Any],
+    embedding_chunks: List[Any],
+    ) -> List[Any]:
+
+
     seen = set()
     combined = []
 
