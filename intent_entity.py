@@ -3,11 +3,11 @@ from typing import List, Optional
 import os
 import json
 from huggingface_hub import InferenceClient
-
+from llm_factory import LLMFactory, ModelCatalogue
 from utils.embedding import embed
-
-from sentence_transformers import SentenceTransformer, util
 from typing import Optional
+
+llm=LLMFactory(ModelCatalogue.OPENAI_GPT_4)
 
 KG_POSITIONS = {
     "GK": "goalkeeper",
@@ -16,7 +16,7 @@ KG_POSITIONS = {
     "FWD": "forward"
 }
 
-_position_model = SentenceTransformer("all-MiniLM-L6-v2")
+""" _position_model = SentenceTransformer("all-MiniLM-L6-v2")
 
 
 def normalize_position_with_embeddings(user_text: str) -> Optional[str]:
@@ -33,7 +33,7 @@ def normalize_position_with_embeddings(user_text: str) -> Optional[str]:
             best_score = score
             best_pos = code
 
-    return best_pos if best_score > 0.4 else None
+    return best_pos if best_score > 0.4 else None """
 
 # ---------- DATA STRUCTURES ----------
 
@@ -78,22 +78,22 @@ VALID_SEASONS = ["2021-22", "2022-23"]
 
 
 
-def _get_hf_client() -> InferenceClient:
+""" def _get_hf_client() -> InferenceClient:
     hf_token = os.getenv("HF_TOKEN")
     if not hf_token:
         raise RuntimeError("HF_TOKEN environment variable not set!")
     return InferenceClient(
         model="google/gemma-2-2b-it",
         token=hf_token,
-    )
+    ) """
 
 
 def classify_intent(user_input: str) -> str:
     """
     Uses the LLM (Gemma 2B IT) to classify the user's intent.
     """
-    client = _get_hf_client()
-
+    # client = _get_hf_client()
+    
     prompt = f"""
 You are an intent classifier for a Fantasy Premier League (FPL) assistant.
 
@@ -155,13 +155,16 @@ User: "{user_input}"
 Intent:
 """
 
-    response = client.chat_completion(
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.0,
-        max_tokens=10,
-    )
+    response = llm.send_to_llm(prompt)
 
-    raw = response["choices"][0]["message"]["content"].strip().lower()
+
+    # response = client.chat_completion(
+    #     messages=[{"role": "user", "content": prompt}],
+    #     temperature=0.0,
+    #     max_tokens=10,
+    # )
+
+    raw = response.strip().lower()
 
     # clean matching
     for label in INTENT_LABELS:
@@ -183,7 +186,7 @@ def llm_extract_entities(user_input: str) -> dict:
     - correct obvious typos (e.g. "halaand" -> "Erling Haaland")
     - map stats to FPL property names
     """
-    client = _get_hf_client()
+   
 
     prompt = f"""
 You are an information extraction system for Fantasy Premier League (FPL).
@@ -251,13 +254,9 @@ TEXT: "{user_input}"
 Return JSON:
 """
 
-    response = client.chat_completion(
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.0,
-        max_tokens=200,
-    )
+    response = llm.send_to_llm(prompt)
 
-    content = response["choices"][0]["message"]["content"].strip()
+    content = response.strip()
 
     # Try to extract JSON even if model adds backticks, etc.
     try:
@@ -298,8 +297,8 @@ def extract_entities(user_input: str) -> ParsedInput:
     position = entity_data.get("position")
 
     # If LLM did NOT detect position, use embeddings
-    if not position:
-        position = normalize_position_with_embeddings(user_input)
+    #if not position:
+     #   position = normalize_position_with_embeddings(user_input) 
 
     entities = QueryEntities(
         players=entity_data.get("players", []),

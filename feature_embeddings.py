@@ -57,8 +57,11 @@ def semantic_player_search(
     # --- Remove duplicate players by name (keep first occurrence) ---
     seen = set()
     unique_rows = []
+
+
     for row in rows:
         name = row["player"]
+        row["confidence"] = row.pop("score")
         if name in seen:
             continue
         seen.add(name)

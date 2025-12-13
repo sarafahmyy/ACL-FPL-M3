@@ -4,6 +4,7 @@ from typing import Any, Dict
 from dotenv import load_dotenv
 from groq import Groq
 #from google import genai
+from openai import OpenAI
 
 """
 llm_factory.py
@@ -20,6 +21,11 @@ class ModelCatalogue(Enum):
     LLAMA_8B = "llama-3.1-8b-instant"
     GPT_OSS = "openai/gpt-oss-120b"
     GEMINI_FLASH = "gemini-2.5-flash"
+    OPENAI_GPT_4 = "gpt-4"
+    OPENAI_GPT_35_TURBO = "gpt-3.5-turbo"
+
+    
+
 
 
 class LLMFactory:
@@ -57,8 +63,20 @@ class LLMFactory:
         # elif self.model == ModelCatalogue.GEMINI_FLASH:
         #     # Google Gemini model
         #     self.client = genai.Client()
+         # ---------- OPENAI ----------
+        elif self.model in {
+            ModelCatalogue.OPENAI_GPT_4,
+            ModelCatalogue.OPENAI_GPT_35_TURBO,
+        }:
+            api_key = os.getenv("OPENAI_API_KEY")
+            if not api_key:
+                raise ValueError("OPENAI_API_KEY not found in environment variables")
+
+            self.client = OpenAI(api_key=api_key)
+
         else:
             raise ValueError(f"Unsupported model: {self.model}")
+
 
     def set_system_message(self, system_message: str) -> None:
         """
@@ -96,6 +114,28 @@ class LLMFactory:
             )
             print(self.system_message,user_message)
             return chat_completion.choices[0].message.content
+        elif self.model in [
+            ModelCatalogue.OPENAI_GPT_4,
+            ModelCatalogue.OPENAI_GPT_35_TURBO,
+        ]:
+            response = self.client.chat.completions.create(
+                model=self.model.value,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": self.system_message
+                    },
+                    {
+                        "role": "user",
+                        "content": user_message
+                    }
+                ],
+                temperature=0.0,
+            )
+            return response.choices[0].message.content
+
+        else:
+            raise ValueError(f"Unsupported model: {self.model}")
         
         # elif self.model == ModelCatalogue.GEMINI_FLASH:
         #     # Google Gemini model

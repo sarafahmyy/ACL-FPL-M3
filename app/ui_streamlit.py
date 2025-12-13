@@ -8,6 +8,9 @@ from llm_factory import ModelCatalogue
 MODEL_MAP = {
     "LLAMA_70B": ModelCatalogue.LLAMA_70B,
     "LLAMA_8B": ModelCatalogue.LLAMA_8B,
+    "GPT_OSS": ModelCatalogue.GPT_OSS,
+    "OPENAI_GPT_4": ModelCatalogue.OPENAI_GPT_4,
+    "OPENAI_GPT_35_TURBO": ModelCatalogue.OPENAI_GPT_35_TURBO,
     # add others if you have them
 }
 
