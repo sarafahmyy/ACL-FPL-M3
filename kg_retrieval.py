@@ -653,6 +653,51 @@ def baseline_player_big_games(parsed: ParsedInput, min_goals: int = 2) -> Dict[s
         "rows": rows,
     }
 
+def baseline_team_players_by_position(parsed: ParsedInput):
+    """
+    Answers:
+    - "Give me Liverpool midfielders"
+    - "Players who play MID in Liverpool"
+    """
+
+    if not parsed.entities.teams or not parsed.entities.position:
+        raise ValueError("Team and position are required.")
+
+    team = parsed.entities.teams[0]
+    position = parsed.entities.position
+    season = parsed.entities.season or "2022-23"
+
+    params = {
+        "team": team,
+        "position": position,
+        "season": season,
+    }
+
+    query = """
+    MATCH (t:Team {name: $team})
+    MATCH (s:Season {season_name: $season})
+        -[:HAS_GW]->(:Gameweek)
+        -[:HAS_FIXTURE]->(f:Fixture)
+    WHERE (f)-[:HAS_HOME_TEAM]->(t) OR (f)-[:HAS_AWAY_TEAM]->(t)
+
+    MATCH (p:Player)-[:PLAYED_IN]->(f)
+    MATCH (p)-[:PLAYS_AS]->(pos:Position {name: $position})
+
+    WITH p, pos, count(f) AS appearances
+
+    WHERE appearances >= 10
+
+    RETURN
+        p.player_name AS player,
+        pos.name AS position,
+        appearances
+    ORDER BY appearances DESC, player
+    """
+
+
+    rows = run_cypher(query, params)
+    return {"query": query, "params": params, "rows": rows}
+
 
 # ============================================================
 #                     DEMO: RUN ALL BASELINE QUERIES

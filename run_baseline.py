@@ -16,6 +16,7 @@ from kg_retrieval import (
     baseline_player_comparison,
     baseline_team_best_players,
     baseline_fixture_difficulty,
+    baseline_team_players_by_position
 )
 
 
@@ -126,6 +127,10 @@ def route_baseline(parsed: ParsedInput):
             "intent": intent,
             "message": "Hi! Ask me about FPL players, teams, fixtures, or recommendations",
         }
+        
+    if intent == "team_players_by_position":
+        return baseline_team_players_by_position(parsed)
+
 
     # 8) Generic or unsupported questions
     return {
