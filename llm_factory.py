@@ -133,7 +133,8 @@ class LLMFactory:
              # Google Gemini model
              response = self.client.models.generate_content(
                  model=self.model.value,
-                 contents=user_message
+                 contents=f"{self.system_message}\n\n{user_message}"
+
              )
              return response.text
 

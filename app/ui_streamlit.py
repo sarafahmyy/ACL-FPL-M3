@@ -1,6 +1,11 @@
 import streamlit as st
 import sys
 from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from utils.embedding import get_available_embedding_keys
 sys.path.append(str(Path(__file__).resolve().parents[1]))  # add project root to path
 from main import pipeline
 from llm_factory import ModelCatalogue
@@ -17,13 +22,24 @@ MODEL_MAP = {
 
 
 
+embedding_keys = get_available_embedding_keys()
+
+
+
+
 st.set_page_config(page_title="FPL Graph-RAG", layout="wide")
 
 st.title("⚽ FPL Graph-RAG Assistant")
 
 # Sidebar controls
 st.sidebar.header("Settings")
-embedding_model_key = st.sidebar.selectbox("Embedding del", ["mini", "mpnet"], index=0)
+
+embedding_model_key = st.sidebar.selectbox(
+    "Embedding model",
+    embedding_keys,
+    index=0
+)
+
 llm_key_str = st.sidebar.selectbox("LLM", list(MODEL_MAP.keys()), index=0)
 llm_key = MODEL_MAP[llm_key_str]
 

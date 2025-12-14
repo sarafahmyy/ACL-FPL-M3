@@ -16,7 +16,10 @@ from kg_retrieval import (
     baseline_player_comparison,
     baseline_team_best_players,
     baseline_fixture_difficulty,
-    baseline_team_players_by_position
+    baseline_team_players_by_position,
+    baseline_players_by_position_in_season,
+    baseline_top_players_by_position,
+
 )
 
 
@@ -36,9 +39,15 @@ def route_baseline(parsed: ParsedInput):
     # 1) Top players (by position / season OR by gameweek)
     if intent == "top_players":
         
-        if entities.gameweek is not None:
-            return baseline_gameweek_top_scorers(parsed, limit=5)
+        if entities.position is not None and any(k in text for k in ["all", "list", "show me all", "give me all"]):
+          return baseline_players_by_position_in_season(parsed, limit=300)
         
+        if entities.position is not None and any(k in text for k in ["top", "best", "highest", "most points"]):
+          return baseline_top_players_by_position(parsed, limit=10)
+        
+        if entities.gameweek is not None:
+          return baseline_gameweek_top_scorers(parsed, limit=5)
+
         return baseline_top_players(parsed)
 
     # 2) Player-related questions (performance / big games / season stats)

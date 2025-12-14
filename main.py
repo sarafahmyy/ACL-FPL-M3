@@ -13,7 +13,7 @@ def pipeline(user_question: str,
             ):
     
     llm = LLMFactory(llm_key)
-    # factory1.set_system_message(system_message)
+    llm.set_system_message("You are a helpful assistant specialized in Fantasy Premier League (FPL) data retrieval and analysis.")
 
 
     print("\n--- EXTRACTING INTENT AND ENTITIES ---")

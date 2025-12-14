@@ -33,8 +33,7 @@ def baseline_top_players(parsed: ParsedInput, limit: int = 10) -> Dict[str, Any]
           -[:HAS_GW]->(:Gameweek)
           -[:HAS_FIXTURE]->(f:Fixture)
     MATCH (p:Player)-[r:PLAYED_IN]->(f)
-    OPTIONAL MATCH (p)-[:PLAYS_AS]->(pos:Position)
-    // filter by position if provided (pos.name)
+    MATCH (p)-[:PLAYS_AS]->(pos:Position)
     WHERE $position IS NULL OR pos.name = $position
     WITH p, sum(r.total_points) AS total_points
     ORDER BY total_points DESC
@@ -141,6 +140,51 @@ def baseline_team_performance(parsed: ParsedInput):
     return {"query": query, "params": params, "rows": rows}
 
 
+def baseline_top_players_by_position(parsed: ParsedInput, limit: int = 10) -> Dict[str, Any]:
+    season = parsed.entities.season or "2022-23"
+    position = parsed.entities.position
+
+    if position is None:
+        raise ValueError("Position is required for baseline_top_players_by_position.")
+
+    params = {"season": season, "position": position, "limit": limit}
+
+    query = """
+    MATCH (s:Season {season_name: $season})-[:HAS_GW]->(:Gameweek)-[:HAS_FIXTURE]->(f:Fixture)
+    MATCH (p:Player)-[r:PLAYED_IN]->(f)
+    MATCH (p)-[:PLAYS_AS]->(:Position {name: $position})
+    WITH p, sum(r.total_points) AS points
+    RETURN p.player_name AS player, $position AS position, points
+    ORDER BY points DESC, player
+    LIMIT $limit
+    """
+
+    rows = run_cypher(query, params)
+    return {"query": query, "params": params, "rows": rows}
+
+
+
+
+def baseline_players_by_position_in_season(parsed: ParsedInput, limit: int = 300) -> Dict[str, Any]:
+    season = parsed.entities.season or "2022-23"
+    position = parsed.entities.position
+
+    if position is None:
+        raise ValueError("Position is required for baseline_players_by_position_in_season.")
+
+    params = {"season": season, "position": position, "limit": limit}
+
+    query = """
+    MATCH (s:Season {season_name: $season})-[:HAS_GW]->(:Gameweek)-[:HAS_FIXTURE]->(f:Fixture)
+    MATCH (p:Player)-[:PLAYED_IN]->(f)
+    MATCH (p)-[:PLAYS_AS]->(:Position {name: $position})
+    RETURN DISTINCT p.player_name AS player, $position AS position
+    ORDER BY player
+    LIMIT $limit
+    """
+
+    rows = run_cypher(query, params)
+    return {"query": query, "params": params, "rows": rows}
 
 
 def baseline_fixtures_by_gameweek(parsed: ParsedInput):
@@ -179,6 +223,36 @@ def baseline_fixtures_by_gameweek(parsed: ParsedInput):
 
 
 
+def baseline_team_players_by_position(parsed: ParsedInput, min_appearances: int = 1) -> Dict[str, Any]:
+    if not parsed.entities.teams:
+        raise ValueError("Team is required for baseline_team_players_by_position.")
+    if parsed.entities.position is None:
+        raise ValueError("Position is required for baseline_team_players_by_position.")
+
+    team = parsed.entities.teams[0]
+    position = parsed.entities.position
+    season = parsed.entities.season or "2022-23"
+
+    params = {"team": team, "position": position, "season": season, "min_apps": min_appearances}
+
+    query = """
+    MATCH (t:Team)
+    WHERE toLower(t.name) = toLower($team)
+    MATCH (s:Season {season_name: $season})-[:HAS_GW]->(:Gameweek)-[:HAS_FIXTURE]->(f:Fixture)
+    WHERE (f)-[:HAS_HOME_TEAM]->(t) OR (f)-[:HAS_AWAY_TEAM]->(t)
+
+    MATCH (p:Player)-[:PLAYED_IN]->(f)
+    MATCH (p)-[:PLAYS_AS]->(:Position {name: $position})
+
+    WITH p, count(DISTINCT f) AS appearances
+    WHERE appearances >= $min_apps
+
+    RETURN p.player_name AS player, $position AS position, appearances
+    ORDER BY appearances DESC, player
+    """
+
+    rows = run_cypher(query, params)
+    return {"query": query, "params": params, "rows": rows}
 
 
 def baseline_team_fixtures(parsed: ParsedInput):
@@ -652,51 +726,6 @@ def baseline_player_big_games(parsed: ParsedInput, min_goals: int = 2) -> Dict[s
         "params": params,
         "rows": rows,
     }
-
-def baseline_team_players_by_position(parsed: ParsedInput):
-    """
-    Answers:
-    - "Give me Liverpool midfielders"
-    - "Players who play MID in Liverpool"
-    """
-
-    if not parsed.entities.teams or not parsed.entities.position:
-        raise ValueError("Team and position are required.")
-
-    team = parsed.entities.teams[0]
-    position = parsed.entities.position
-    season = parsed.entities.season or "2022-23"
-
-    params = {
-        "team": team,
-        "position": position,
-        "season": season,
-    }
-
-    query = """
-    MATCH (t:Team {name: $team})
-    MATCH (s:Season {season_name: $season})
-        -[:HAS_GW]->(:Gameweek)
-        -[:HAS_FIXTURE]->(f:Fixture)
-    WHERE (f)-[:HAS_HOME_TEAM]->(t) OR (f)-[:HAS_AWAY_TEAM]->(t)
-
-    MATCH (p:Player)-[:PLAYED_IN]->(f)
-    MATCH (p)-[:PLAYS_AS]->(pos:Position {name: $position})
-
-    WITH p, pos, count(f) AS appearances
-
-    WHERE appearances >= 10
-
-    RETURN
-        p.player_name AS player,
-        pos.name AS position,
-        appearances
-    ORDER BY appearances DESC, player
-    """
-
-
-    rows = run_cypher(query, params)
-    return {"query": query, "params": params, "rows": rows}
 
 
 # ============================================================

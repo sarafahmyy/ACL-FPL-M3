@@ -25,3 +25,8 @@ def embed(text: str, model_key: str = "mini"):
     vector = model.encode(text)
     return vector.tolist()
 
+
+def get_available_embedding_keys():
+    return list(EMBEDDING_MODELS.keys())
+
+

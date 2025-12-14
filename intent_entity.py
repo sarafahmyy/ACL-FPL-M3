@@ -7,7 +7,7 @@ from llm_factory import LLMFactory, ModelCatalogue
 from utils.embedding import embed
 from typing import Optional
 
-llm=LLMFactory(ModelCatalogue.GPT_4)
+llm=LLMFactory(ModelCatalogue.GPT_35_TURBO)
 
 KG_POSITIONS = {
     "GK": "goalkeeper",

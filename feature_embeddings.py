@@ -1,6 +1,6 @@
-from input_embedding import embed
 from kg_retrieval import run_cypher 
 from intent_entity import ParsedInput
+from utils.embedding import embed
 
 
 # ---------- SEMANTIC SEARCH OVER FEATURE EMBEDDINGS ----------
