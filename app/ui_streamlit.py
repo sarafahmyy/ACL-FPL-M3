@@ -1,6 +1,7 @@
 import streamlit as st
 import sys
 from pathlib import Path
+from collections import defaultdict
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -80,24 +81,46 @@ if run and question.strip():
         st.subheader("🧩 Combined Chunks (Deduped)")
         st.json(result.get("combined", [])[:40])
 
-    # ---- RIGHT: Final Answer ----
+    # ---- RIGHT: Final Output ----
     with col2:
-      st.subheader("✅ Final LLM Answer")
-      st.write(result.get("answer", "No answer returned"))
+        st.subheader("✅ Final Output")
 
-      st.subheader("🧾 Parsed Intent & Entities")
-      st.write("**Intent:**", result.get("intent"))
+        # ===== TEAM FORMULATION DISPLAY =====
+        if result.get("intent") == "team_formulation":
+            st.subheader("🏟 Recommended Team Formation")
 
-      entities = result.get("entities")
+            formation = result.get("baseline", {}).get("formation", "N/A")
+            st.write(f"**Formation:** {formation}")
 
-    # render entities safely
-      if hasattr(entities, "model_dump"):          # Pydantic v2
-        st.json(entities.model_dump())
-      elif hasattr(entities, "dict"):             # Pydantic v1
-        st.json(entities.dict())
-      elif hasattr(entities, "__dict__"):         # normal class/dataclass
-        st.json(vars(entities))
-      else:
-        st.json(entities)
+            rows = result.get("baseline", {}).get("rows", [])
+
+            # group flat rows back by position
+            grouped_team = defaultdict(list)
+            for r in rows:
+                grouped_team[r.get("position", "UNK")].append(r)
+
+            for pos, players in grouped_team.items():
+                st.markdown(f"### {pos}")
+                st.table(players)
+
+        # ===== NORMAL QA DISPLAY =====
+        else:
+            st.subheader("🧠 Final LLM Answer")
+            st.write(result.get("answer", "No answer returned"))
+
+        # ===== PARSED INFO =====
+        st.subheader("🧾 Parsed Intent & Entities")
+        st.write("**Intent:**", result.get("intent"))
+
+        entities = result.get("entities")
+
+        if hasattr(entities, "model_dump"):
+            st.json(entities.model_dump())
+        elif hasattr(entities, "dict"):
+            st.json(entities.dict())
+        elif hasattr(entities, "__dict__"):
+            st.json(vars(entities))
+        else:
+            st.json(entities)
 
 

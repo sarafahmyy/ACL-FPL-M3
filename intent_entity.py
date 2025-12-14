@@ -69,7 +69,8 @@ INTENT_LABELS = [
     "fixture_info",
     "team_analysis",
     "player_identity",
-    "team_players_by_position",   # ✅ ADD THIS
+    "team_players_by_position", 
+    "team_formulation",  
     "generic_question",
     "greetings",
 ]
@@ -131,6 +132,16 @@ Intent: team_players_by_position
 
 User: "Players who play MID in Arsenal" 
 Intent: team_players_by_position
+
+User: "Build me a 3-4-3 team"
+Intent: team_formulation
+
+User: "Recommend a full FPL team"
+Intent: team_formulation
+
+User: "Best team for this season"
+Intent: team_formulation
+
 
 User: "What is Arsenal's next fixture?"
 Intent: fixture_info
