@@ -19,8 +19,7 @@ from kg_retrieval import (
     baseline_team_players_by_position,
     baseline_players_by_position_in_season,
     baseline_top_players_by_position,
-    baseline_team_formation,
-
+    baseline_team_formulation
 )
 
 
@@ -149,20 +148,6 @@ def route_baseline(parsed: ParsedInput):
         return baseline_recommendation_graph_only(parsed)
 
 
-    # 6.5) Team formulation recommender (FULL XI)
-    if intent == "team_formulation":
-
-        formation_name = "3-4-3"
-        for f in FORMATIONS:
-            if f in text:
-                formation_name = f
-                break
-
-        formation = FORMATIONS[formation_name]
-
-        return baseline_team_formation(parsed, formation)
-
-
     # 7) Greetings – don’t query Neo4j, just answer politely
     if intent == "greetings":
         return {
@@ -170,6 +155,26 @@ def route_baseline(parsed: ParsedInput):
             "message": "Hi! Ask me about FPL players, teams, fixtures, or recommendations",
         }
         
+        # 8) Team formulation recommender (Build me a 3-4-3 team...)
+    if intent == "team_formulation":
+        # detect formation from raw text
+        detected = None
+        for fstr in FORMATIONS.keys():
+            if fstr in text:
+                detected = fstr
+                break
+
+        # fallback if user didn't type formation explicitly
+        if detected is None:
+            detected = "3-4-3"
+
+        formation_dict = FORMATIONS[detected]
+        result = baseline_team_formulation(parsed, formation=formation_dict, limit_pool_per_pos=30)
+        # store formation string too (nice for UI)
+        result["formation_str"] = detected
+        return result
+
+    
     if intent == "team_players_by_position":
         return baseline_team_players_by_position(parsed)
 

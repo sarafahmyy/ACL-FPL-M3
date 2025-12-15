@@ -12,6 +12,10 @@ from run_baseline import FORMATIONS  # ✅ uses your existing formations
 MODEL_MAP = {
     "LLAMA_70B": ModelCatalogue.LLAMA_70B,
     "LLAMA_8B": ModelCatalogue.LLAMA_8B,
+    "GPT_OSS": ModelCatalogue.GPT_OSS,
+    "GPT_4": ModelCatalogue.GPT_4,
+    "GPT_35_TURBO": ModelCatalogue.GPT_35_TURBO,
+    "GEMINI_FLASH": ModelCatalogue.GEMINI_FLASH,
     # add others if you have them
 }
 
@@ -141,27 +145,59 @@ else:
         with col2:
             st.subheader("✅ Recommended Team")
 
-            # If your route_baseline returns team_formulation rows, show them as XI
             if result.get("intent") == "team_formulation":
-                st.write("**Formation:**", result.get("baseline", {}).get("formation", formation))
+                baseline = result.get("baseline", {})
 
-                rows = result.get("baseline", {}).get("rows", [])
-                if not rows:
-                    st.warning("No players returned for this recommender query.")
+                st.write("**Formation:**", baseline.get("formation_str", formation))
+                if baseline.get("team"):
+                    st.write("**Team filter:**", baseline.get("team"))
+                st.write("**Season:**", baseline.get("season"))
+
+                # --- Starting XI ---
+                st.markdown("## ✅ Starting XI (Final Team)")
+                xi = baseline.get("xi", [])
+                if not xi:
+                    st.warning("No XI returned for this recommender query.")
                 else:
-                    grouped = defaultdict(list)
-                    for r in rows:
-                        grouped[r.get("position", "UNK")].append(r)
-
+                    # display by position
                     for pos in ["GK", "DEF", "MID", "FWD"]:
-                        if grouped.get(pos):
+                        pos_rows = [p for p in xi if p.get("position") == pos]
+                        if pos_rows:
                             st.markdown(f"### {pos}")
-                            st.table(grouped[pos])
+                            st.table([{
+                                "player": r.get("player"),
+                                "total_points": r.get("total_points"),
+                                "appearances": r.get("appearances"),
+                                "goals": r.get("goals"),
+                                "assists": r.get("assists"),
+                                "explanation": r.get("explanation"),
+                            } for r in pos_rows])
+
+                # --- Ranked Pool ---
+                st.markdown("## 📌 Ranked Recommendations (Candidate Pool)")
+                rows = baseline.get("rows", [])
+                if not rows:
+                    st.warning("No ranked pool returned.")
+                else:
+                    for pos in ["GK", "DEF", "MID", "FWD"]:
+                        pos_rows = [r for r in rows if r.get("position") == pos]
+                        if pos_rows:
+                            st.markdown(f"### {pos} candidates")
+                            st.table([{
+                                "rank_in_position": r.get("rank_in_position"),
+                                "player": r.get("player"),
+                                "total_points": r.get("total_points"),
+                                "appearances": r.get("appearances"),
+                                "goals": r.get("goals"),
+                                "assists": r.get("assists"),
+                                "selected_in_xi": r.get("selected_in_xi"),
+                                "explanation": r.get("explanation"),
+                            } for r in pos_rows])
+
             else:
-                # fallback: show normal answer if classifier didn't pick team_formulation
                 st.warning("Recommender intent was not detected. Showing normal answer instead.")
                 st.write(result.get("answer", "No answer returned"))
-
+                
             st.subheader("🧾 Parsed Intent & Entities")
             st.write("**Intent:**", result.get("intent"))
 
