@@ -1,22 +1,61 @@
 
 from feature_embeddings import semantic_player_search
-from intent_entity import extract_entities
+from intent_entity import ParsedInput, QueryEntities, extract_entities
 from run_baseline import route_baseline
 from llm_factory import LLMFactory, ModelCatalogue
 from utils.pipeline_utils import combine_chunks
+from typing import Optional
 
 
 
-def pipeline(user_question: str,
-             llm_key=ModelCatalogue.LLAMA_70B,
-            embedding_model_key: str = "mini"
-            ):
+
+def pipeline(
+    user_question: str,
+    llm_key=ModelCatalogue.LLAMA_70B,
+    embedding_model_key: str = "mini",
+    mode: str = "qa",
+    formation: str = "3-4-3",
+    team: Optional[str] = None,
+    season: Optional[str] = None,
+):
+
     
     llm = LLMFactory(llm_key)
     llm.set_system_message("You are a helpful assistant specialized in Fantasy Premier League (FPL) data retrieval and analysis.")
 
 
     print("\n--- EXTRACTING INTENT AND ENTITIES ---")
+
+
+    if mode == "recommender":
+        # Build a ParsedInput directly (no need to rely on LLM intent classification here)
+        entities = QueryEntities(
+            teams=[team] if team else [],
+            season=season,
+            position=None,
+            players=[],
+            stats=[],
+            gameweek=None,
+        )
+
+        # Put the formation into raw text so route_baseline detects it
+        raw = f"Build me a {formation} team"
+        if team:
+            raw += f" for {team}"
+        if season:
+            raw += f" in {season}"
+
+        parsed = ParsedInput(intent="team_formulation", entities=entities, raw=raw)
+
+        baseline_result = route_baseline(parsed)   
+        return {
+            "answer": None,                        
+            "intent": "team_formulation",
+            "entities": entities,
+            "baseline": baseline_result,
+            "embedding": {},
+            "combined": [],
+        }
 
     parsed_intents_entities = extract_entities(user_question)
 

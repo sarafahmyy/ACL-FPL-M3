@@ -3,124 +3,174 @@ import sys
 from pathlib import Path
 from collections import defaultdict
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(PROJECT_ROOT))
-
-from utils.embedding import get_available_embedding_keys
 sys.path.append(str(Path(__file__).resolve().parents[1]))  # add project root to path
+
 from main import pipeline
 from llm_factory import ModelCatalogue
+from run_baseline import FORMATIONS  # ✅ uses your existing formations
 
 MODEL_MAP = {
     "LLAMA_70B": ModelCatalogue.LLAMA_70B,
     "LLAMA_8B": ModelCatalogue.LLAMA_8B,
-    "GPT_OSS": ModelCatalogue.GPT_OSS,
-    "GPT_4": ModelCatalogue.GPT_4,
-    "GPT_35_TURBO": ModelCatalogue.GPT_35_TURBO,
-    "GEMINI_FLASH": ModelCatalogue.GEMINI_FLASH,
     # add others if you have them
 }
 
-
-
-embedding_keys = get_available_embedding_keys()
-
-
-
-
 st.set_page_config(page_title="FPL Graph-RAG", layout="wide")
-
 st.title("⚽ FPL Graph-RAG Assistant")
 
-# Sidebar controls
+# Sidebar controls (keep your style)
 st.sidebar.header("Settings")
-
-embedding_model_key = st.sidebar.selectbox(
-    "Embedding model",
-    embedding_keys,
-    index=0
-)
-
+embedding_model_key = st.sidebar.selectbox("Embedding del", ["mini", "mpnet"], index=0)
 llm_key_str = st.sidebar.selectbox("LLM", list(MODEL_MAP.keys()), index=0)
 llm_key = MODEL_MAP[llm_key_str]
 
+# ✅ NEW: mode toggle
+mode = st.sidebar.radio("Mode", ["Q/A", "Recommender"], index=0)
 
-question = st.text_input("Ask a question:", value="Who is Mohamed Salah and what is his score?")
+# -------------------------
+# Q/A MODE (your old UI)
+# -------------------------
+if mode == "Q/A":
+    question = st.text_input("Ask a question:", value="Who is Mohamed Salah and what is his score?")
+    run = st.button("Run")
 
-run = st.button("Run")
+    if run and question.strip():
+        with st.spinner("Running pipeline..."):
+            result = pipeline(
+                question,
+                llm_key=llm_key,
+                embedding_model_key=embedding_model_key
+            )
 
-if run and question.strip():
-    with st.spinner("Running pipeline..."):
-        result = pipeline(
-            question,
-            llm_key=llm_key,                
-            embedding_model_key=embedding_model_key
-        )
+        # Layout: 2 columns
+        col1, col2 = st.columns([1, 1])
 
-    # Layout: 2 columns
-    col1, col2 = st.columns([1, 1])
+        # ---- LEFT: Retrieval transparency ----
+        with col1:
+            st.subheader("🔎 KG Retrieved Context (Raw)")
 
-    # ---- LEFT: Retrieval transparency ----
-    with col1:
-        st.subheader("🔎 KG Retrieved Context (Raw)")
+            baseline = result.get("baseline", {})
+            rows = baseline.get("rows", [])
+            st.write("**Rows returned:**", len(rows))
+            st.json(rows[:20])  # show first 20 rows
 
-        baseline = result.get("baseline", {})
-        rows = baseline.get("rows", [])
-        st.write("**Rows returned:**", len(rows))
-        st.json(rows[:20])  # show first 20 rows
+            st.subheader("🧾 Cypher Query Executed (Optional)")
+            st.code(baseline.get("query", "No Cypher query"), language="cypher")
+            st.write("**Params:**")
+            st.json(baseline.get("params", {}))
 
-        st.subheader("🧾 Cypher Query Executed (Optional)")
-        st.code(baseline.get("query", "No Cypher query"), language="cypher")
-        st.write("**Params:**")
-        st.json(baseline.get("params", {}))
+            st.subheader("🧠 Vector Search Results (Optional)")
+            embedding = result.get("embedding", {})
+            st.json(embedding.get("rows", [])[:20])
 
-        st.subheader("🧠 Vector Search Results (Optional)")
-        embedding = result.get("embedding", {})
-        st.json(embedding.get("rows", [])[:20])
+            st.subheader("🧩 Combined Chunks (Deduped)")
+            st.json(result.get("combined", [])[:40])
 
-        st.subheader("🧩 Combined Chunks (Deduped)")
-        st.json(result.get("combined", [])[:40])
-
-    # ---- RIGHT: Final Output ----
-    with col2:
-        st.subheader("✅ Final Output")
-
-        # ===== TEAM FORMULATION DISPLAY =====
-        if result.get("intent") == "team_formulation":
-            st.subheader("🏟 Recommended Team Formation")
-
-            formation = result.get("baseline", {}).get("formation", "N/A")
-            st.write(f"**Formation:** {formation}")
-
-            rows = result.get("baseline", {}).get("rows", [])
-
-            # group flat rows back by position
-            grouped_team = defaultdict(list)
-            for r in rows:
-                grouped_team[r.get("position", "UNK")].append(r)
-
-            for pos, players in grouped_team.items():
-                st.markdown(f"### {pos}")
-                st.table(players)
-
-        # ===== NORMAL QA DISPLAY =====
-        else:
-            st.subheader("🧠 Final LLM Answer")
+        # ---- RIGHT: Final Answer ----
+        with col2:
+            st.subheader("✅ Final LLM Answer")
             st.write(result.get("answer", "No answer returned"))
 
-        # ===== PARSED INFO =====
-        st.subheader("🧾 Parsed Intent & Entities")
-        st.write("**Intent:**", result.get("intent"))
+            st.subheader("🧾 Parsed Intent & Entities")
+            st.write("**Intent:**", result.get("intent"))
 
-        entities = result.get("entities")
+            entities = result.get("entities")
 
-        if hasattr(entities, "model_dump"):
-            st.json(entities.model_dump())
-        elif hasattr(entities, "dict"):
-            st.json(entities.dict())
-        elif hasattr(entities, "__dict__"):
-            st.json(vars(entities))
-        else:
-            st.json(entities)
+            # render entities safely
+            if hasattr(entities, "model_dump"):          # Pydantic v2
+                st.json(entities.model_dump())
+            elif hasattr(entities, "dict"):             # Pydantic v1
+                st.json(entities.dict())
+            elif hasattr(entities, "__dict__"):         # normal class/dataclass
+                st.json(vars(entities))
+            else:
+                st.json(entities)
 
+# -------------------------
+# RECOMMENDER MODE (added)
+# -------------------------
+else:
+    st.subheader("🏟 Team Recommender")
 
+    formation = st.selectbox("Formation", list(FORMATIONS.keys()), index=0)
+    team = st.text_input("Optional team filter (e.g. Liverpool, Arsenal)", value="")
+    season = st.selectbox("Season", ["", "2021-22", "2022-23"], index=2)
+
+    run = st.button("Build Team")
+
+    if run:
+        # Build a natural-language question that your existing pipeline can handle
+        rec_question = f"Build me a {formation} team"
+        if team.strip():
+            rec_question += f" for {team.strip()}"
+        if season:
+            rec_question += f" in {season}"
+
+        with st.spinner("Running pipeline..."):
+            result = pipeline(
+                rec_question,
+                llm_key=llm_key,
+                embedding_model_key=embedding_model_key
+            )
+
+        # keep same 2-column layout for transparency (same as your old UI)
+        col1, col2 = st.columns([1, 1])
+
+        # ---- LEFT: Retrieval transparency (same) ----
+        with col1:
+            st.subheader("🔎 KG Retrieved Context (Raw)")
+
+            baseline = result.get("baseline", {})
+            rows = baseline.get("rows", [])
+            st.write("**Rows returned:**", len(rows))
+            st.json(rows[:50])  # more rows helpful for XI
+
+            st.subheader("🧾 Cypher Query Executed (Optional)")
+            st.code(baseline.get("query", "No Cypher query"), language="cypher")
+            st.write("**Params:**")
+            st.json(baseline.get("params", {}))
+
+            st.subheader("🧠 Vector Search Results (Optional)")
+            embedding = result.get("embedding", {})
+            st.json(embedding.get("rows", [])[:20])
+
+            st.subheader("🧩 Combined Chunks (Deduped)")
+            st.json(result.get("combined", [])[:60])
+
+        # ---- RIGHT: Team Output ----
+        with col2:
+            st.subheader("✅ Recommended Team")
+
+            # If your route_baseline returns team_formulation rows, show them as XI
+            if result.get("intent") == "team_formulation":
+                st.write("**Formation:**", result.get("baseline", {}).get("formation", formation))
+
+                rows = result.get("baseline", {}).get("rows", [])
+                if not rows:
+                    st.warning("No players returned for this recommender query.")
+                else:
+                    grouped = defaultdict(list)
+                    for r in rows:
+                        grouped[r.get("position", "UNK")].append(r)
+
+                    for pos in ["GK", "DEF", "MID", "FWD"]:
+                        if grouped.get(pos):
+                            st.markdown(f"### {pos}")
+                            st.table(grouped[pos])
+            else:
+                # fallback: show normal answer if classifier didn't pick team_formulation
+                st.warning("Recommender intent was not detected. Showing normal answer instead.")
+                st.write(result.get("answer", "No answer returned"))
+
+            st.subheader("🧾 Parsed Intent & Entities")
+            st.write("**Intent:**", result.get("intent"))
+
+            entities = result.get("entities")
+            if hasattr(entities, "model_dump"):
+                st.json(entities.model_dump())
+            elif hasattr(entities, "dict"):
+                st.json(entities.dict())
+            elif hasattr(entities, "__dict__"):
+                st.json(vars(entities))
+            else:
+                st.json(entities)
