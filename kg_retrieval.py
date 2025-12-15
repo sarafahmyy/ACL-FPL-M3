@@ -727,6 +727,62 @@ def baseline_player_big_games(parsed: ParsedInput, min_goals: int = 2) -> Dict[s
         "rows": rows,
     }
 
+def baseline_team_formation(parsed: ParsedInput, formation: Dict[str, int]) -> Dict[str, Any]:
+    """
+    FULL XI team recommender using ONE Cypher query.
+    Correctly filters by TEAM OWNERSHIP.
+    """
+
+    season = parsed.entities.season or "2022-23"
+    team = parsed.entities.teams[0] if parsed.entities.teams else None
+
+    params = {
+        "season": season,
+        "team": team,
+    }
+
+    query = """
+    MATCH (s:Season {season_name: $season})
+          -[:HAS_GW]->(:Gameweek)
+          -[:HAS_FIXTURE]->(f:Fixture)
+
+    MATCH (p:Player)-[r:PLAYED_IN]->(f)
+    MATCH (p)-[:PLAYS_AS]->(pos:Position)
+    MATCH (p)-[:PLAYS_FOR]->(t:Team)
+
+    WHERE $team IS NULL
+       OR toLower(t.name) = toLower($team)
+
+    WITH p, pos.name AS position, sum(r.total_points) AS points
+    ORDER BY points DESC
+
+    RETURN
+        p.player_name AS player,
+        position,
+        points
+    """
+
+    rows = run_cypher(query, params)
+
+    # ---- Formation slicing ----
+    from collections import defaultdict
+
+    grouped = defaultdict(list)
+    for r in rows:
+        grouped[r["position"]].append(r)
+
+    final_rows = []
+    for pos, count in formation.items():
+        final_rows.extend(grouped[pos][:count])
+
+    return {
+        "intent": parsed.intent,
+        "formation": formation,
+        "query": query,
+        "params": params,
+        "rows": final_rows,
+    }
+
 
 # ============================================================
 #                     DEMO: RUN ALL BASELINE QUERIES
