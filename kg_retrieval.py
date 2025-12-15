@@ -5,6 +5,7 @@ Section 2.a - Baseline Graph Retrieval (FPL)
 from typing import Dict, Any
 
 from intent_entity import ParsedInput, QueryEntities
+from collections import defaultdict
 from utils.neo4j_connection import run_cypher
 
 
@@ -726,6 +727,126 @@ def baseline_player_big_games(parsed: ParsedInput, min_goals: int = 2) -> Dict[s
         "params": params,
         "rows": rows,
     }
+    
+    # ---------- TEAM FORMULATION RECOMMENDER (Ranked + Explained) ----------
+
+def baseline_team_formulation(parsed: ParsedInput, formation: dict, limit_pool_per_pos: int = 30) -> Dict[str, Any]:
+    """
+    Builds a full XI based on a formation like {"GK":1,"DEF":4,"MID":3,"FWD":3}
+
+    IMPORTANT:
+    - The KG does NOT explicitly encode player-team ownership.
+    - Team filtering is therefore performed at the FIXTURE level.
+    - This limitation is transparently communicated in explanations.
+    """
+
+    season = parsed.entities.season or "2022-23"
+    team = parsed.entities.teams[0] if parsed.entities.teams else None
+
+    params = {
+        "season": season,
+        "team": team,
+    }
+
+    # --- Cypher query ---
+    query = """
+    MATCH (s:Season {season_name: $season})-[:HAS_GW]->(:Gameweek)-[:HAS_FIXTURE]->(f:Fixture)
+
+    // Apply optional team filter at the fixture level
+    WHERE $team IS NULL OR EXISTS {
+        MATCH (f)-[:HAS_HOME_TEAM|HAS_AWAY_TEAM]->(t:Team)
+        WHERE toLower(t.name) = toLower($team)
+    }
+
+    MATCH (p:Player)-[r:PLAYED_IN]->(f)
+    MATCH (p)-[:PLAYS_AS]->(pos:Position)
+
+    WITH
+        p,
+        pos.name AS position,
+        count(DISTINCT f) AS appearances,
+        sum(r.total_points) AS total_points,
+        sum(r.goals_scored) AS goals,
+        sum(r.assists) AS assists
+
+    RETURN
+        p.player_name AS player,
+        position,
+        appearances,
+        total_points,
+        goals,
+        assists
+    ORDER BY position, total_points DESC, appearances DESC, player
+    """
+
+    raw_rows = run_cypher(query, params)
+
+    # --- group players by position ---
+    by_pos = defaultdict(list)
+    for r in raw_rows:
+        pos = r.get("position")
+        if pos in ["GK", "DEF", "MID", "FWD"]:
+            by_pos[pos].append(r)
+
+    ranked_pool = []
+    xi = []
+
+    # --- ranking + XI selection ---
+    for pos in ["GK", "DEF", "MID", "FWD"]:
+        candidates = by_pos.get(pos, [])
+
+        for idx, c in enumerate(candidates, start=1):
+            c["rank_in_position"] = idx
+
+            # --- explanation ---
+            explanation_parts = [
+                f"Rank #{idx} in {pos} by total_points for season {season}",
+                f"{c.get('total_points', 0)} pts across {c.get('appearances', 0)} appearances",
+                f"{c.get('goals', 0)} goals, {c.get('assists', 0)} assists",
+            ]
+
+            if team:
+                explanation_parts.append(
+                    f"Filtered using fixtures involving team '{team}' "
+                    "(player-team affiliation not explicitly encoded in KG)"
+                )
+
+            c["explanation"] = " · ".join(explanation_parts)
+            ranked_pool.append(c)
+
+        # select starters for this position
+        required = formation.get(pos, 0)
+        starters = candidates[:required]
+
+        for s in starters:
+            s_copy = dict(s)
+            s_copy["selected_in_xi"] = True
+            xi.append(s_copy)
+
+        # mark non-selected (for UI)
+        for c in candidates[required:limit_pool_per_pos]:
+            c["selected_in_xi"] = False
+
+    # --- limit pool size for UI ---
+    trimmed_pool = []
+    for pos in ["GK", "DEF", "MID", "FWD"]:
+        trimmed_pool.extend(by_pos.get(pos, [])[:limit_pool_per_pos])
+
+    selected_players = {p["player"] for p in xi}
+    for r in trimmed_pool:
+        r["selected_in_xi"] = r.get("player") in selected_players
+
+    return {
+        "intent": parsed.intent,
+        "season": season,
+        "team": team,
+        "formation": formation,
+        "query": query,
+        "params": params,
+        "xi": xi,
+        "rows": trimmed_pool,
+    }
+
 
 
 # ============================================================

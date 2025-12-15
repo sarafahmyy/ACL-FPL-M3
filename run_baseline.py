@@ -19,7 +19,7 @@ from kg_retrieval import (
     baseline_team_players_by_position,
     baseline_players_by_position_in_season,
     baseline_top_players_by_position,
-
+    baseline_team_formulation
 )
 
 
@@ -39,32 +39,6 @@ FORMATIONS = {
     "3-6-1": {"GK": 1, "DEF": 3, "MID": 6, "FWD": 1},
 }
 
-def build_team_formation(rows, formation):
-    """
-    rows: list of dicts returned from KG
-    formation: {"GK":1,"DEF":4,"MID":3,"FWD":3}
-    """
-
-    from collections import defaultdict
-
-    grouped = defaultdict(list)
-
-    # group players by position
-    for r in rows:
-        grouped[r["position"]].append(r)
-
-    selected_team = {}
-
-    for pos, count in formation.items():
-        # sort players by points (descending)
-        players = sorted(
-            grouped[pos],
-            key=lambda x: x.get("points", 0),
-            reverse=True
-        )
-        selected_team[pos] = players[:count]
-
-    return selected_team
 
 def route_baseline(parsed: ParsedInput):
     """
@@ -174,70 +148,6 @@ def route_baseline(parsed: ParsedInput):
         return baseline_recommendation_graph_only(parsed)
 
 
-    # 6.5) Team formulation recommender (FULL XI)
-    if intent == "team_formulation":
-
-        season = entities.season or "2022-23"
-
-        # detect formation from user text if present
-        formation_name = "3-4-3"  # default
-
-        for f in FORMATIONS.keys():
-            if f in text:
-                formation_name = f
-                break
-
-        formation = FORMATIONS[formation_name]
-
-
-        all_players = []
-
-        team_name = entities.teams[0] if entities.teams else None
-
-        for pos in formation.keys():
-            temp_entities = QueryEntities(
-                position=pos,
-                season=season
-            )
-
-            # if user specified a team → restrict to that team
-            if team_name:
-                temp_entities.teams = [team_name]
-
-            temp_parsed = ParsedInput(
-                intent="top_players",
-                entities=temp_entities,
-                raw=""
-            )
-
-            if team_name:
-                # use team-specific players by position
-                result = baseline_team_players_by_position(temp_parsed)
-            else:
-                # global best players
-                result = baseline_top_players_by_position(temp_parsed, limit=10)
-
-            for r in result["rows"]:
-                r["position"] = pos
-
-            all_players.extend(result["rows"])
-
-        team = build_team_formation(all_players, formation)
-
-        # flatten team dict -> list of rows
-        flat_rows = []
-        for pos, players in team.items():
-            for p in players:
-                p["position"] = pos
-                flat_rows.append(p)
-
-        return {
-            "intent": "team_formulation",
-            "formation": formation_name,
-            "rows": flat_rows
-        }
-
-
     # 7) Greetings – don’t query Neo4j, just answer politely
     if intent == "greetings":
         return {
@@ -245,6 +155,26 @@ def route_baseline(parsed: ParsedInput):
             "message": "Hi! Ask me about FPL players, teams, fixtures, or recommendations",
         }
         
+        # 8) Team formulation recommender (Build me a 3-4-3 team...)
+    if intent == "team_formulation":
+        # detect formation from raw text
+        detected = None
+        for fstr in FORMATIONS.keys():
+            if fstr in text:
+                detected = fstr
+                break
+
+        # fallback if user didn't type formation explicitly
+        if detected is None:
+            detected = "3-4-3"
+
+        formation_dict = FORMATIONS[detected]
+        result = baseline_team_formulation(parsed, formation=formation_dict, limit_pool_per_pos=30)
+        # store formation string too (nice for UI)
+        result["formation_str"] = detected
+        return result
+
+    
     if intent == "team_players_by_position":
         return baseline_team_players_by_position(parsed)
 

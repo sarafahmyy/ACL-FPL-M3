@@ -82,6 +82,7 @@ Your job is to classify user questions into EXACTLY ONE of these categories:
 - team_analysis
 - player_identity
 - team_players_by_position
+- team_formulation
 - generic_question
 - greetings
 
