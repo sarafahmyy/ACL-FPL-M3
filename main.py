@@ -75,7 +75,37 @@ def pipeline(user_question: str,
 }
 
 
+def run_comparison():
+    final_comparison=[]
+    user_questions= [
+        "Who is Mohamed Salah and what is his position?",
+        "Top forwards in 2023 season",
+        "Show me stats and goals for midfielders in 2019",
+        "How many points did Haaland get in GW 3 2022-23?",
+        "How did Arsenal team perform last season?",
+        "Who should I captain this gameweek?",
+        "What is the next fixture for Liverpool in GW 10?",
+    ]
+    for llm in [ModelCatalogue.LLAMA_70B, ModelCatalogue.GPT_35_TURBO, ModelCatalogue.GPT_4, ModelCatalogue.GEMINI_FLASH,ModelCatalogue.GPT_OSS, ModelCatalogue.LLAMA_8B
+                    ]:
+        for question in user_questions:
+            results=pipeline(question, llm_key=llm, embedding_model_key="mini")
+            final_comparison.append({
+                "llm": llm.value,
+                "question": question,
+                "answer": results["answer"],
+                "intent": results["intent"],
+                "entities": results["entities"],
+                "baseline": results["baseline"],
+                "embedding": results["embedding"],
+                "combined": results["combined"],
+            })
+    #fill in csv file with final comparison
+        
+        
+    
 
+    
 
 
 
