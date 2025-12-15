@@ -9,31 +9,6 @@ from typing import Optional
 
 llm=LLMFactory(ModelCatalogue.GPT_35_TURBO)
 
-KG_POSITIONS = {
-    "GK": "goalkeeper",
-    "DEF": "defender",
-    "MID": "midfielder",
-    "FWD": "forward"
-}
-
-""" _position_model = SentenceTransformer("all-MiniLM-L6-v2")
-
-
-def normalize_position_with_embeddings(user_text: str) -> Optional[str]:
-    user_emb = _position_model.encode(user_text, convert_to_tensor=True)
-
-    best_score = -1
-    best_pos = None
-
-    for code, label in KG_POSITIONS.items():
-        label_emb = _position_model.encode(label, convert_to_tensor=True)
-        score = util.cos_sim(user_emb, label_emb).item()
-
-        if score > best_score:
-            best_score = score
-            best_pos = code
-
-    return best_pos if best_score > 0.4 else None """
 
 # ---------- DATA STRUCTURES ----------
 
@@ -304,19 +279,12 @@ Return JSON:
 def extract_entities(user_input: str) -> ParsedInput:
     entity_data = llm_extract_entities(user_input)
 
-    # Try LLM position first
-    position = entity_data.get("position")
-
-    # If LLM did NOT detect position, use embeddings
-    #if not position:
-     #   position = normalize_position_with_embeddings(user_input) 
-
     entities = QueryEntities(
         players=entity_data.get("players", []),
         teams=entity_data.get("teams", []),
         season=entity_data.get("season"),
         gameweek=entity_data.get("gameweek"),
-        position=position,
+        position=entity_data.get("position"),
         stats=entity_data.get("stats", []),
     )
 
