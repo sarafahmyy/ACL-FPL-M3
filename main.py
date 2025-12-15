@@ -17,18 +17,16 @@ def pipeline(
     formation: str = "3-4-3",
     team: Optional[str] = None,
     season: Optional[str] = None,
+    pipeline_mode: str = "Both",  # New argument to specify retrieval method
 ):
 
-    
     llm = LLMFactory(llm_key)
     llm.set_system_message("You are a helpful assistant specialized in Fantasy Premier League (FPL) data retrieval and analysis.")
 
-
     print("\n--- EXTRACTING INTENT AND ENTITIES ---")
 
-
     if mode == "recommender":
-        # Build a ParsedInput directly (no need to rely on LLM intent classification here)
+        # Same recommender logic here...
         entities = QueryEntities(
             teams=[team] if team else [],
             season=season,
@@ -38,7 +36,6 @@ def pipeline(
             gameweek=None,
         )
 
-        # Put the formation into raw text so route_baseline detects it
         raw = f"Build me a {formation} team"
         if team:
             raw += f" for {team}"
@@ -49,12 +46,14 @@ def pipeline(
 
         baseline_result = route_baseline(parsed)   
         return {
-            "answer": None,                        
+            "answer": None,                         
             "intent": "team_formulation",
             "entities": entities,
             "baseline": baseline_result,
             "embedding": {},
             "combined": [],
+            "input_tokens": llm.get_token_usage()['input_tokens'],
+            "output_tokens": llm.get_token_usage()['output_tokens'],
         }
 
     parsed_intents_entities = extract_entities(user_question)
@@ -63,28 +62,30 @@ def pipeline(
     print("Intent:", parsed_intents_entities.intent)
     print("Entities:", parsed_intents_entities.entities)
 
-
-
-    print("\n--- RUNNING BASELINE APPROACH ---")
-
-
+    print("\n--- RUNNING RETRIEVAL ---")
+    
     baseline_result = {}
     embedding_result = {}
 
-
+    # Handle retrieval based on selected method
     try:
-        baseline_result = route_baseline(parsed_intents_entities)
-        baseline_chunks = baseline_result.get("rows", [])
+        if pipeline_mode in ["Both", "Baseline"]:
+            baseline_result = route_baseline(parsed_intents_entities)
+            baseline_chunks = baseline_result.get("rows", [])
+        else:
+            baseline_chunks = []
 
     except Exception as e:
         print("\n[ERROR RUNNING BASELINE RETRIEVAL]", e)
         print()
-        baseline_chunks= []
+        baseline_chunks = []
 
     try:
-        embedding_result = semantic_player_search(parsed_intents_entities, model_key=embedding_model_key, k=5)
-        embedding_chunks = embedding_result.get("rows", [])
-
+        if pipeline_mode in ["Both", "Embedding"]:
+            embedding_result = semantic_player_search(parsed_intents_entities, model_key=embedding_model_key, k=5)
+            embedding_chunks = embedding_result.get("rows", [])
+        else:
+            embedding_chunks = []
 
     except Exception as e:
         print("\n[ERROR RUNNING EMBEDDING RETRIEVAL]", e)
@@ -111,35 +112,9 @@ def pipeline(
       "baseline": baseline_result,     
       "embedding": embedding_result,    
       "combined": combined_chunks,
+      "input_tokens": llm.get_token_usage()['input_tokens'],
+      "output_tokens": llm.get_token_usage()['output_tokens'],
 }
-
-
-def run_comparison():
-    final_comparison=[]
-    user_questions= [
-        "Who is Mohamed Salah and what is his position?",
-        "Top forwards in 2023 season",
-        "Show me stats and goals for midfielders in 2019",
-        "How many points did Haaland get in GW 3 2022-23?",
-        "How did Arsenal team perform last season?",
-        "Who should I captain this gameweek?",
-        "What is the next fixture for Liverpool in GW 10?",
-    ]
-    for llm in [ModelCatalogue.LLAMA_70B, ModelCatalogue.GPT_35_TURBO, ModelCatalogue.GPT_4, ModelCatalogue.GEMINI_FLASH,ModelCatalogue.GPT_OSS, ModelCatalogue.LLAMA_8B
-                    ]:
-        for question in user_questions:
-            results=pipeline(question, llm_key=llm, embedding_model_key="mini")
-            final_comparison.append({
-                "llm": llm.value,
-                "question": question,
-                "answer": results["answer"],
-                "intent": results["intent"],
-                "entities": results["entities"],
-                "baseline": results["baseline"],
-                "embedding": results["embedding"],
-                "combined": results["combined"],
-            })
-    #fill in csv file with final comparison
         
         
     
@@ -149,18 +124,19 @@ def run_comparison():
 
 
 #if __name__ == "__main__":
-    # example_questions = [
-    #     "Top forwards in 2023 season",
-    #     "Show me stats and goals for midfielders in 2019",
-    #     "How many points did Haaland get in GW 3 2022-23?",
-    #     "How did Arsenal team perform last season?",
-    #     "Who should I captain this gameweek?",
-    #     "What is the next fixture for Liverpool in GW 10?",
-    #     "Show me stats and goals for midfielders in 2022-23",
-    #     "who is halaand?",
-    #     "Who could I captin this gameweek?",
-    #     "hello there how are you?"
-    # ]
+    example_questions = [
+        "Top forwards in 2023 season",
+        "Show me stats and goals for midfielders in 2022-23",
+        "How many points did Haaland get in GW 3 2022-23?",
+        "How did Arsenal team perform last season?",
+        "give me 4 midfielders from arsenal",
+        "Who did Liverpool face in GW 10 season 2021-22?",
+        "Show me stats and goals for midfielders in 2022-23",
+        "who is halaand?",
+        "compare between mohamed salah and harry kane performance in 2021-22 season",
+        "who is the top scorer in 2022-23 season?",
+        "hello there how are you?"
+    ]
 
 
     #embedding_model_key="mini"

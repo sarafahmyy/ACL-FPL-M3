@@ -12,13 +12,18 @@ from run_baseline import FORMATIONS  # ✅ uses your existing formations
 MODEL_MAP = {
     "LLAMA_70B": ModelCatalogue.LLAMA_70B,
     "LLAMA_8B": ModelCatalogue.LLAMA_8B,
+    "GPT_OSS": ModelCatalogue.GPT_OSS,
+    "GPT_4": ModelCatalogue.GPT_4, 
+    "GPT_35_TURBO": ModelCatalogue.GPT_35_TURBO,
+    "GEMINI_FLASH": ModelCatalogue.GEMINI_FLASH,
     # add others if you have them
 }
 
+# Streamlit UI changes for retrieval method selection
 st.set_page_config(page_title="FPL Graph-RAG", layout="wide")
 st.title("⚽ FPL Graph-RAG Assistant")
 
-# Sidebar controls (keep your style)
+# Sidebar controls
 st.sidebar.header("Settings")
 embedding_model_key = st.sidebar.selectbox("Embedding del", ["mini", "mpnet"], index=0)
 llm_key_str = st.sidebar.selectbox("LLM", list(MODEL_MAP.keys()), index=0)
@@ -26,6 +31,9 @@ llm_key = MODEL_MAP[llm_key_str]
 
 # ✅ NEW: mode toggle
 mode = st.sidebar.radio("Mode", ["Q/A", "Recommender"], index=0)
+
+# ✅ NEW: retrieval method selection
+pipeline_mode = st.sidebar.selectbox("Select Retrieval Method", ["Both", "Baseline", "Embedding"], index=0)
 
 # -------------------------
 # Q/A MODE (your old UI)
@@ -39,7 +47,8 @@ if mode == "Q/A":
             result = pipeline(
                 question,
                 llm_key=llm_key,
-                embedding_model_key=embedding_model_key
+                embedding_model_key=embedding_model_key,
+                pipeline_mode=pipeline_mode  # Pass selected pipeline mode
             )
 
         # Layout: 2 columns
@@ -75,13 +84,11 @@ if mode == "Q/A":
             st.write("**Intent:**", result.get("intent"))
 
             entities = result.get("entities")
-
-            # render entities safely
-            if hasattr(entities, "model_dump"):          # Pydantic v2
+            if hasattr(entities, "model_dump"):
                 st.json(entities.model_dump())
-            elif hasattr(entities, "dict"):             # Pydantic v1
+            elif hasattr(entities, "dict"):
                 st.json(entities.dict())
-            elif hasattr(entities, "__dict__"):         # normal class/dataclass
+            elif hasattr(entities, "__dict__"):
                 st.json(vars(entities))
             else:
                 st.json(entities)
@@ -99,7 +106,6 @@ else:
     run = st.button("Build Team")
 
     if run:
-        # Build a natural-language question that your existing pipeline can handle
         rec_question = f"Build me a {formation} team"
         if team.strip():
             rec_question += f" for {team.strip()}"
@@ -110,20 +116,19 @@ else:
             result = pipeline(
                 rec_question,
                 llm_key=llm_key,
-                embedding_model_key=embedding_model_key
+                embedding_model_key=embedding_model_key,
+                pipeline_mode=pipeline_mode  # Pass selected pipeline mode
             )
 
-        # keep same 2-column layout for transparency (same as your old UI)
         col1, col2 = st.columns([1, 1])
 
-        # ---- LEFT: Retrieval transparency (same) ----
         with col1:
             st.subheader("🔎 KG Retrieved Context (Raw)")
 
             baseline = result.get("baseline", {})
             rows = baseline.get("rows", [])
             st.write("**Rows returned:**", len(rows))
-            st.json(rows[:50])  # more rows helpful for XI
+            st.json(rows[:50])
 
             st.subheader("🧾 Cypher Query Executed (Optional)")
             st.code(baseline.get("query", "No Cypher query"), language="cypher")
@@ -137,11 +142,9 @@ else:
             st.subheader("🧩 Combined Chunks (Deduped)")
             st.json(result.get("combined", [])[:60])
 
-        # ---- RIGHT: Team Output ----
         with col2:
             st.subheader("✅ Recommended Team")
 
-            # If your route_baseline returns team_formulation rows, show them as XI
             if result.get("intent") == "team_formulation":
                 st.write("**Formation:**", result.get("baseline", {}).get("formation", formation))
 
@@ -158,7 +161,6 @@ else:
                             st.markdown(f"### {pos}")
                             st.table(grouped[pos])
             else:
-                # fallback: show normal answer if classifier didn't pick team_formulation
                 st.warning("Recommender intent was not detected. Showing normal answer instead.")
                 st.write(result.get("answer", "No answer returned"))
 

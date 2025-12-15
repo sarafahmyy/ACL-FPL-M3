@@ -1,0 +1,60 @@
+# LLM Comparison Results
+
+## Performance & Cost Analysis
+
+| Model | Total Time | Avg Time/Run | Total Input Tokens | Total Output Tokens | Avg Input/Run | Avg Output/Run | Total Cost | Avg Cost/Run |
+|-------|----------:|-----------:|------------------:|-------------------:|-------------:|-------------:|----------:|------------:|
+| LLAMA_70B | 128.03s | 11.64s | 11,867 | 592 | 1078.8 | 53.8 | FREE | FREE |
+| GPT_35_TURBO | 128.22s | 11.66s | 11,645 | 357 | 1058.6 | 32.5 | $0.006358 | $0.000578 |
+| GPT_4 | 140.15s | 12.74s | 11,461 | 614 | 1041.9 | 55.8 | $0.380670 | $0.034606 |
+
+---
+
+## LLAMA_70B
+
+| Question | Response | Time Taken | Input Tokens | Output Tokens |
+|----------|----------|------------|--------------|---------------|
+| Top forwards in 2023 season | The top forwards in the 2023 season are:  1. Erling Haaland (272 points) 2. Harry Kane (263 points) ... | 16.7 seconds | 434 | 53 |
+| Show me stats and goals for midfielders in 2022-23 | Based on the provided context chunks, the following midfielders' stats for 2022-23 are available:  1... | 11.51 seconds | 411 | 172 |
+| How many points did Haaland get in GW 3 2022-23? | I don't know.... | 11.98 seconds | 230 | 6 |
+| How did Arsenal team perform last season? | Arsenal team played 38 matches last season, scoring 107 goals, with 89 assists, and earning 3213 poi... | 11.47 seconds | 274 | 28 |
+| give me 4 midfielders from arsenal | To answer the user's question, "give me 4 midfielders from arsenal", we need to look at the provided... | 11.57 seconds | 7882 | 94 |
+| Who did Liverpool face in GW 10 season 2021-22? | Liverpool faced Brighton in GW 10 of the 2021-22 season.... | 11.26 seconds | 1100 | 17 |
+| Show me stats and goals for midfielders in 2022-23 | The provided context chunks contain information about player points and positions, but it does not i... | 11.26 seconds | 411 | 49 |
+| who is halaand? | Erling Haaland is a forward (FWD) with 272 total points for the season.... | 12.11 seconds | 244 | 22 |
+| compare between mohamed salah and harry kane performance in 2021-22 season | Based on the context chunks, I found that in one instance, Mohamed Salah scored 4 points, while Harr... | 11.24 seconds | 263 | 123 |
+| who is the top scorer in 2022-23 season? | The top scorer in the 2022-23 season is Erling Haaland with 272 points.... | 11.29 seconds | 371 | 22 |
+| hello there how are you? | I don't know.... | 7.64 seconds | 247 | 6 |
+
+## GPT_35_TURBO
+
+| Question | Response | Time Taken | Input Tokens | Output Tokens |
+|----------|----------|------------|--------------|---------------|
+| Top forwards in 2023 season | Erling Haaland and Harry Kane were the top forwards in the 2023 season, scoring 272 and 263 points r... | 18.85 seconds | 410 | 28 |
+| Show me stats and goals for midfielders in 2022-23 | The stats and goals for midfielders in 2022-23 are as follows: 1. Mohamed Salah - 239 points 2. Mart... | 12.29 seconds | 387 | 140 |
+| How many points did Haaland get in GW 3 2022-23? | Erling Haaland got 6 points in Gameweek 3 of the 2022-23 season.... | 10.75 seconds | 240 | 24 |
+| How did Arsenal team perform last season? | The Arsenal team scored 107 goals, provided 89 assists, and earned a total of 3213 points in the las... | 11.6 seconds | 250 | 27 |
+| give me 4 midfielders from arsenal | Bukayo Saka, Emile Smith Rowe, Nicolas Pépé, Granit Xhaka... | 11.34 seconds | 7861 | 21 |
+| Who did Liverpool face in GW 10 season 2021-22? | Liverpool faced Brighton in Gameweek 10 of the 2021-22 season.... | 11.26 seconds | 1076 | 18 |
+| Show me stats and goals for midfielders in 2022-23 | Based on the given context chunks, I don't have specific goal data for midfielders in the 2022-23 se... | 10.54 seconds | 387 | 26 |
+| who is halaand? | Erling Haaland is a forward (FWD) who has accumulated 272 points in the season.... | 11.17 seconds | 223 | 22 |
+| compare between mohamed salah and harry kane performance in 2021-22 season | In the 2021-22 season, Mohamed Salah has scored 4 points while Harry Kane has scored 8 points.... | 11.16 seconds | 240 | 25 |
+| who is the top scorer in 2022-23 season? | The top scorer in the 2022-23 season is Erling Haaland with 272 points.... | 11.98 seconds | 347 | 21 |
+| hello there how are you? | I don't know.... | 7.28 seconds | 224 | 5 |
+
+## GPT_4
+
+| Question | Response | Time Taken | Input Tokens | Output Tokens |
+|----------|----------|------------|--------------|---------------|
+| Top forwards in 2023 season | The top forwards in the 2023 season based on the available data are:  1. Erling Haaland with 272 poi... | 13.11 seconds | 410 | 66 |
+| Show me stats and goals for midfielders in 2022-23 | Based on the information provided, here are the points accrued by some midfielders in the 2022-23 se... | 17.6 seconds | 387 | 171 |
+| How many points did Haaland get in GW 3 2022-23? | I don't know.... | 11.78 seconds | 206 | 5 |
+| How did Arsenal team perform last season? | In the last season, Arsenal played 38 matches. They scored a total of 107 goals and made 89 assists.... | 11.97 seconds | 250 | 33 |
+| give me 4 midfielders from arsenal | The four midfielders from Arsenal are:  1. Bukayo Saka 2. Emile Smith Rowe 3. Fábio Ferreira Vieira ... | 13.63 seconds | 7861 | 38 |
+| Who did Liverpool face in GW 10 season 2021-22? | Liverpool faced Brighton in GW 10 of the 2021-22 season.... | 12.17 seconds | 1076 | 16 |
+| Show me stats and goals for midfielders in 2022-23 | The top midfielders in the 2022-23 FPL based on points are:  1. Mohamed Salah with 239 points 2. Mar... | 15.49 seconds | 387 | 138 |
+| who is halaand? | The player you're referring to seems to be Erling Haaland. He is a forward and has scored a total of... | 13.82 seconds | 223 | 35 |
+| compare between mohamed salah and harry kane performance in 2021-22 season | In the 2021-22 season, Harry Kane scored higher than Mohamed Salah in Fantasy Premier League. Kane s... | 13.6 seconds | 240 | 49 |
+| who is the top scorer in 2022-23 season? | I'm sorry, but the data provided does not include information about the top scorer of the Fantasy Pr... | 7.96 seconds | 197 | 30 |
+| hello there how are you? | I'm an AI, so I don't have feelings, but I'm here to help you! How can I assist you with your Fantas... | 9.02 seconds | 224 | 33 |
+
