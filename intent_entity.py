@@ -301,3 +301,19 @@ def extract_entities(user_input: str) -> ParsedInput:
 
 # ---------- DEMO BLOCK ----------
 
+def main():
+    # Demo question
+    demo_question = "How many goals did Mohamed Salah score in gameweek 3 in season 2022-2023?"
+
+    # Process the question
+    parsed_input = extract_entities(demo_question)
+
+    # Print the result
+    print(f"Intent: {parsed_input.intent}")
+    print(f"Entities Extracted: {parsed_input.entities}")
+    print(f"Raw Question: {parsed_input.raw}")
+
+
+# Run the demo
+if __name__ == "__main__":
+    main()
