@@ -7,7 +7,7 @@ from utils.embedding import embed
 
 def semantic_player_search(
     parsed: ParsedInput,
-    model_key: str = "mini",
+    model_key: str = "text-embedding-3-large",
     k: int = 5,
 ):
     """
@@ -23,11 +23,10 @@ def semantic_player_search(
     # 1) Use the original user text as the semantic description
     description = parsed.raw
 
-    # 2) Embed the question using the chosen model (mini or mpnet)
     query_vec = embed(description, model_key=model_key)
 
     # 3) Choose the correct index
-    index_name = f"player_feature_embedding_{model_key}"
+    index_name = f"player_feature_embedding_2{model_key.replace('-', '_')}"
 
     # 4) Extract any useful constraints from entities
     position = parsed.entities.position  # "FWD", "MID", "DEF", "GK" or None
@@ -86,7 +85,7 @@ if __name__ == "__main__":
         "goalkeeper with many saves and clean sheets",
     ]
 
-    for model_key in ["mini", "mpnet"]:
+    for model_key in ["text-embedding-3-small", "text-embedding-3-large"]:
 
         print(f"\n=== SEMANTIC SEARCH USING {model_key.upper()} ===")
         for q in queries:

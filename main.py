@@ -12,7 +12,7 @@ from typing import Optional
 def pipeline(
     user_question: str,
     llm_key=ModelCatalogue.LLAMA_70B,
-    embedding_model_key: str = "mini",
+    embedding_model_key: str = "text-embedding-3-large",
     mode: str = "qa",
     formation: str = "3-4-3",
     team: Optional[str] = None,
@@ -21,7 +21,9 @@ def pipeline(
 ):
 
     llm = LLMFactory(llm_key)
-    llm.set_system_message("You are a helpful assistant specialized in Fantasy Premier League (FPL) data retrieval and analysis.")
+    llm.set_system_message("""
+You are a highly knowledgeable assistant specialized in Fantasy Premier League (FPL) data analysis. Your role is to provide users with insightful, accurate, and actionable answers related to FPL statistics, player performance, team recommendations, and other FPL-related queries. You can analyze historical player data, compare player stats, suggest team formations, and assist with fantasy football strategies. Always provide clear and concise answers based on the context given, and do not make assumptions outside of the provided information, also respond to greetings in a polite way.
+""")
 
     print("\n--- EXTRACTING INTENT AND ENTITIES ---")
 
@@ -96,12 +98,17 @@ def pipeline(
     combined_chunks = combine_chunks(baseline_chunks, embedding_chunks)
     print("Combined context:\n", combined_chunks)
 
-    prompt=f""" given the following user question: {user_question}
-    and the following context chunks from the knowledge base:
-    {combined_chunks}
-    Provide a concise answer to the user question based on the context chunks.
-    If the answer is not found in the context, respond with 'I don't know'.
-    do not fabricate any information or make up answers or respond from your own knowledge."""
+    prompt = f"""
+You are a highly knowledgeable assistant specializing in Fantasy Premier League (FPL). You have access to context from FPL-related knowledge sources. Given the user question and the context chunks retrieved from the knowledge base, provide a concise and accurate answer. If the answer is not directly available, respond with 'I don't know'. Do not make up information, and avoid providing details not found in the context. 
+
+User Question: {user_question}
+
+Context Chunks:
+{combined_chunks}
+
+Your Response:
+"""
+
 
     response = llm.send_to_llm(prompt)
     
@@ -124,22 +131,22 @@ def pipeline(
 
 
 #if __name__ == "__main__":
-    example_questions = [
-        "Top forwards in 2023 season",
-        "Show me stats and goals for midfielders in 2022-23",
-        "How many points did Haaland get in GW 3 2022-23?",
-        "How did Arsenal team perform last season?",
-        "give me 4 midfielders from arsenal",
-        "Who did Liverpool face in GW 10 season 2021-22?",
-        "Show me stats and goals for midfielders in 2022-23",
-        "who is halaand?",
-        "compare between mohamed salah and harry kane performance in 2021-22 season",
-        "who is the top scorer in 2022-23 season?",
-        "hello there how are you?"
-    ]
+    # example_questions = [
+    #     "Top forwards in 2023 season",
+    #     "Show me stats and goals for midfielders in 2022-23",
+    #     "How many points did Haaland get in GW 3 2022-23?",
+    #     "How did Arsenal team perform last season?",
+    #     "give me 4 midfielders from arsenal",
+    #     "Who did Liverpool face in GW 10 season 2021-22?",
+    #     "Show me stats and goals for midfielders in 2022-23",
+    #     "who is halaand?",
+    #     "compare between mohamed salah and harry kane performance in 2021-22 season",
+    #     "who is the top scorer in 2022-23 season?",
+    #     "hello there how are you?"
+    # ]
 
 
-    #embedding_model_key="mini"
+    #embedding_model_key=""
     #user_question="who is mo salah and where does he play and what is his score?"
     #llm=ModelCatalogue.LLAMA_70B
 

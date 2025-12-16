@@ -1,8 +1,24 @@
 from typing import Any, Dict, List
-from kg_retrieval import get_driver, run_cypher
+from kg_retrieval import run_cypher
 from utils.embedding import embed
 from typing import Dict
 
+from utils.neo4j_connection import get_driver
+
+import ast
+
+def load_embeddings(model_key: str):
+    with open(f"feature_embeddings_{model_key}.txt", "r", encoding="utf-8") as f:
+        embeddings_str = f.read()
+    
+    # Convert the string back to a list of embeddings
+    embeddings = ast.literal_eval(embeddings_str)
+    
+    return embeddings
+
+# Load the embeddings from the file
+
+# You can now use `embeddings` directly in your function or process further
 
 
 def fetch_player_feature_rows() -> List[Dict[str, Any]]:
@@ -103,7 +119,6 @@ def fetch_player_feature_rows() -> List[Dict[str, Any]]:
     rows = run_cypher(query)
     return rows
 
-
 def build_feature_description(row: Dict[str, Any]) -> str:
     """
     Convert row into a text description for the embedding model
@@ -114,71 +129,37 @@ def build_feature_description(row: Dict[str, Any]) -> str:
     season_text = ", ".join(seasons) if seasons else "unknown seasons"
 
     position = row.get("position") or "Unknown position"
-    matches = row.get("matches", 0) or 0
-
-    minutes = row.get("minutes", 0) or 0
+    
     goals_scored = row.get("goals_scored", 0) or 0
     assists = row.get("assists", 0) or 0
     total_points = row.get("total_points", 0) or 0
-    bonus = row.get("bonus", 0) or 0
+    
     clean_sheets = row.get("clean_sheets", 0) or 0
-    goals_conceded = row.get("goals_conceded", 0) or 0
-    own_goals = row.get("own_goals", 0) or 0
-    penalties_saved = row.get("penalties_saved", 0) or 0
-    penalties_missed = row.get("penalties_missed", 0) or 0
-    yellow_cards = row.get("yellow_cards", 0) or 0
-    red_cards = row.get("red_cards", 0) or 0
-    saves = row.get("saves", 0) or 0
-    bps = row.get("bps", 0) or 0
-
-    avg_influence = row.get("avg_influence", 0.0) or 0.0
-    avg_creativity = row.get("avg_creativity", 0.0) or 0.0
-    avg_threat = row.get("avg_threat", 0.0) or 0.0
-    avg_ict_index = row.get("avg_ict_index", 0.0) or 0.0
     avg_form = row.get("avg_form", 0.0) or 0.0
 
     desc = (
         f"Player: {player}. "
         f"Seasons: {season_text}. "
         f"Position: {position}. "
-        f"Matches played: {matches}. "
-        f"Minutes played: {minutes}. "
         f"Goals scored: {goals_scored}. "
         f"Assists: {assists}. "
         f"Total FPL points: {total_points}. "
-        f"Bonus points: {bonus}. "
         f"Clean sheets: {clean_sheets}. "
-        f"Goals conceded: {goals_conceded}. "
-        f"Own goals: {own_goals}. "
-        f"Penalties saved: {penalties_saved}. "
-        f"Penalties missed: {penalties_missed}. "
-        f"Yellow cards: {yellow_cards}. "
-        f"Red cards: {red_cards}. "
-        f"Saves: {saves}. "
-        f"BPS total: {bps}. "
-        f"Average influence: {avg_influence:.2f}. "
-        f"Average creativity: {avg_creativity:.2f}. "
-        f"Average threat: {avg_threat:.2f}. "
-        f"Average ICT index: {avg_ict_index:.2f}. "
         f"Average form: {avg_form:.2f}."
     )
 
     return desc
-
-
-def ensure_feature_embedding_index(model_key: str, dim: int) -> None:
+def ensure_feature_embedding_index(model_key: str, dim: int = 1536) -> None:
     """
     Create a Neo4j vector index for the feature embeddings for a given model.
-
-    Index name:   player_feature_embedding_<model_key>
-    Property:     feature_embedding_<model_key>
     """
+    # Replace hyphen with underscore in the model key to avoid syntax issues in Cypher
+    index_name = f"player_feature_embedding_2{model_key.replace('-', '_')}"
+    prop_name = f"feature_embedding_2{model_key.replace('-', '_')}"
 
-    index_name = f"player_feature_embedding_{model_key}"
-    prop_name = f"feature_embedding_{model_key}"
-
+    # Quote the index name to handle any special characters like hyphens
     cypher = f"""
-    CREATE VECTOR INDEX {index_name} IF NOT EXISTS
+    CREATE VECTOR INDEX `{index_name}` IF NOT EXISTS
     FOR (p:Player) ON (p.{prop_name})
     OPTIONS {{
       indexConfig: {{
@@ -188,8 +169,8 @@ def ensure_feature_embedding_index(model_key: str, dim: int) -> None:
     }}
     """
 
+    # Run the Cypher query
     run_cypher(cypher, {"dim": dim})
-
 
 def store_feature_embeddings(
     rows: List[Dict[str, Any]],
@@ -202,13 +183,13 @@ def store_feature_embeddings(
     Property name will be:
         p.feature_embedding_<model_key>
     """
-
     if not rows:
         return
     if len(rows) != len(embeddings):
         raise ValueError("rows and embeddings must have the same length.")
 
-    prop_name = f"feature_embedding_{model_key}"
+    # Replace hyphens with underscores in the property name for valid Cypher syntax
+    prop_name = f"feature_embedding_2{model_key.replace('-', '_')}"
 
     driver = get_driver()
     query_template = f"""
@@ -223,32 +204,40 @@ def store_feature_embeddings(
                 "embedding": vec,
             })
 
-
-
-def build_feature_embeddings_for_players(model_key: str = "mini") -> int:
+def build_feature_embeddings_for_players(model_key: str = "text-embedding-3-large") -> int:
     """
-    Full pipeline for one embedding model ("mini" or "mpnet"):
+    Full pipeline for one embedding model ("text-embedding-3-large" or "text-embedding-3-small"):
 
     1. Fetch aggregated player features using the exact PLAYED_IN fields.
     2. Build text descriptions from these features.
-    3. Embed them using the chosen model.
+    3. Embed them using the chosen OpenAI model.
     4. Create / ensure the vector index.
     5. Store embeddings on Player nodes.
 
     Returns: number of players processed.
     """
-
     rows = fetch_player_feature_rows()
     if not rows:
         print("No player rows found in KG.")
         return 0
 
     descriptions = [build_feature_description(row) for row in rows]
-
+    i=0
     embeddings: List[List[float]] = []
     for desc in descriptions:
-        vec = embed(desc, model_key=model_key)
+        
+        print(desc,"\n")
+        vec = embed(desc, model_key=model_key)  # Use OpenAI's embedding model here
+
         embeddings.append(vec)
+        print(f"Embedded player {i+1}/{len(descriptions)}")
+        i+=1
+        
+
+
+        
+
+
 
     dim = len(embeddings[0])
     ensure_feature_embedding_index(model_key=model_key, dim=dim)
@@ -257,9 +246,8 @@ def build_feature_embeddings_for_players(model_key: str = "mini") -> int:
     print(f"[{model_key}] Stored feature embeddings for {len(rows)} players.")
     return len(rows)
 
-
 if __name__ == "__main__":
-    for model_key in ["mini", "mpnet"]:
+    for model_key in ["text-embedding-3-small"]:
         print("\n" + "#" * 60)
         print(f"BUILDING FEATURE EMBEDDINGS FOR MODEL: {model_key}")
         print("#" * 60)

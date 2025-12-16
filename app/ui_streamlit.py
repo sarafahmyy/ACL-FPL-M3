@@ -25,7 +25,7 @@ st.title("⚽ FPL Graph-RAG Assistant")
 
 # Sidebar controls
 st.sidebar.header("Settings")
-embedding_model_key = st.sidebar.selectbox("Embedding del", ["mini", "mpnet"], index=0)
+embedding_model_key = st.sidebar.selectbox("Embedding del", ["text-embedding-3-small", "text-embedding-3-large"], index=0)
 llm_key_str = st.sidebar.selectbox("LLM", list(MODEL_MAP.keys()), index=0)
 llm_key = MODEL_MAP[llm_key_str]
 

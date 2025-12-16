@@ -203,7 +203,7 @@ CRITICAL:
   - forward(s) / striker(s)
   - or position codes: GK, DEF, MID, FWD
 
-- If the user asks "what is his position?" but does NOT include one of those words, position MUST be null.
+
 
 
 
@@ -219,12 +219,10 @@ Rules:
 - Use position ONLY if the user explicitly mentions a position group:
   forwards/strikers/midfielders/defenders/goalkeepers
 - Map them to:
-  forwards/strikers -> FWD
+  forwards/strikers -> FWD 
   midfielders -> MID
   defenders -> DEF
   goalkeepers -> GK
-- If the user asks "what is his position?" (about a specific player), then put "position" in stats
-  and keep position = null.
 
 
 
@@ -303,29 +301,3 @@ def extract_entities(user_input: str) -> ParsedInput:
 
 # ---------- DEMO BLOCK ----------
 
-if __name__ == "__main__":
-    example_questions = [
-        "Who is Mohamed Salah and what is his position?",
-
-    ]
-
-    
-    for model_key in ["mini", "mpnet"]:
-        print("\n" + "#" * 40)
-        print(f"EMBEDDING MODEL: {model_key}")
-        print("#" * 40)
-
-        for q in example_questions:
-            print("=" * 80)
-            print("Q:", q)
-            parsed = extract_entities(q)
-            print(" -> intent (LLM):", parsed.intent)
-            print(" -> entities:", parsed.entities)
-
-            try:
-                emb = embed(q, model_key=model_key)
-                print(f" -> embedding length ({model_key}):", len(emb))
-            except Exception as e:
-                print(" -> embedding error:", e)
-
-            print()

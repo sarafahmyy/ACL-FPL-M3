@@ -2,19 +2,38 @@ import time
 
 from llm_factory import  ModelCatalogue
 from main import pipeline
+# user_questions = [
+#         "Top forwards in 2023 season",
+#         "Show me stats and goals for midfielders in 2022-23",
+#         "How many points did Haaland get in GW 3 2022-23?",
+#         "How did Arsenal team perform last season?",
+#         "give me 4 midfielders from arsenal",
+#         "Who did Liverpool face in GW 10 season 2021-22?",
+#         "Show me stats and goals for midfielders in 2022-23",
+#         "who is halaand?",
+#         "compare between mohamed salah and harry kane performance in 2021-22 season",
+#         "who is the top scorer in 2022-23 season?",
+#         "hello there how are you?"
+#     ]
+
 user_questions = [
-        "Top forwards in 2023 season",
-        "Show me stats and goals for midfielders in 2022-23",
+        "how many points did  cr7 score in last seasons",
+        "tell me forwards from the gunners",
+        "Who is Momo Salah?",
+        "Top forwards in 2022/23 season",
+        "Show me stats and goals for kdb in 2022-23",
         "How many points did Haaland get in GW 3 2022-23?",
-        "How did Arsenal team perform last season?",
+        "Tell me about spurs",
         "give me 4 midfielders from arsenal",
-        "Who did Liverpool face in GW 10 season 2021-22?",
+        "how did the egyption king perform ",
         "Show me stats and goals for midfielders in 2022-23",
         "who is halaand?",
         "compare between mohamed salah and harry kane performance in 2021-22 season",
-        "who is the top scorer in 2022-23 season?",
-        "hello there how are you?"
+        "ايه هي ارقام صارؤخ ماضيلرا في الموسم اللي فات",
+        
+        
     ]
+
 output={}
     
 for llm_model in [ModelCatalogue.LLAMA_70B,ModelCatalogue.GPT_35_TURBO,ModelCatalogue.GPT_4]:
