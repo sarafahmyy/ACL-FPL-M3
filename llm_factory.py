@@ -124,6 +124,7 @@ class LLMFactory:
                         {"role": "system", "content": self.system_message},
                         {"role": "user", "content": user_message},
                     ],
+                    temperature=0
                 )
                 # Track tokens for Groq
                 if hasattr(chat_completion, 'usage') and chat_completion.usage:
@@ -142,6 +143,7 @@ class LLMFactory:
                         {"role": "system", "content": self.system_message},
                         {"role": "user", "content": user_message},
                     ],
+                    temperature=0
                 )
                 # Track tokens for OpenAI
                 if hasattr(response, 'usage') and response.usage:
@@ -157,6 +159,7 @@ class LLMFactory:
                 response = self.client.models.generate_content(
                     model=self.model.value,
                     contents=user_message,
+                    temperature=0,
                 )
                 # Track tokens for Gemini
                 if hasattr(response, 'usage_metadata') and response.usage_metadata:
